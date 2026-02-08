@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package orchestratorpb;
+
+option go_package = "github.com/example/sequids/pkg/proto/orchestratorpb";
+
+message CreateSensorRequest {
+  string sensor_id = 1;
+  int64 interval_ms = 2;
+  string worker_id = 3;
+}
+
+message CreateSensorResponse {
+  string status = 1;
+}
+
+message ReportSensorStatusRequest {
+  string sensor_id = 1;
+  string status = 2;
+  double value = 3;
+}
+
+message ReportSensorStatusResponse {
+  string ack = 1;
+}
+
+service WorkerService {
+  rpc CreateSensor(CreateSensorRequest) returns (CreateSensorResponse);
+}
+
+service OrchestratorService {
+  rpc ReportSensorStatus(ReportSensorStatusRequest) returns (ReportSensorStatusResponse);
+}
