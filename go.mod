@@ -1,4 +1,4 @@
-module github.com/example/sequids
+module github.com/apavozkov/sequids
 
 go 1.25.1
 

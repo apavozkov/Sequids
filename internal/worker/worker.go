@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	orchestratorpb "github.com/example/sequids/pkg/proto/orchestratorpb"
+	orchestratorpb "github.com/apavozkov/sequids/pkg/proto/orchestratorpb"
 	"google.golang.org/grpc"
 )
 
@@ -20,13 +20,13 @@ type Sensor struct {
 
 type Service struct {
 	orchestratorpb.UnimplementedWorkerServiceServer
-	workerID             string
-	orchestratorAddr     string
-	orchestratorClient   orchestratorpb.OrchestratorServiceClient
-	orchestratorConn     *grpc.ClientConn
-	sensors              map[string]*Sensor
-	mu                   sync.Mutex
-	rng                  *rand.Rand
+	workerID           string
+	orchestratorAddr   string
+	orchestratorClient orchestratorpb.OrchestratorServiceClient
+	orchestratorConn   *grpc.ClientConn
+	sensors            map[string]*Sensor
+	mu                 sync.Mutex
+	rng                *rand.Rand
 }
 
 func NewService(workerID, orchestratorAddr string) *Service {

@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	orchestrator "github.com/example/sequids/internal/orchestrator"
-	orchestratorpb "github.com/example/sequids/pkg/proto/orchestratorpb"
+	orchestrator "github.com/apavozkov/sequids/internal/orchestrator"
+	orchestratorpb "github.com/apavozkov/sequids/pkg/proto/orchestratorpb"
 	"google.golang.org/grpc"
 )
 
