@@ -161,3 +161,29 @@ go mod tidy
 ```bash
 go env -w GOPRIVATE=github.com/<you>/*
 ```
+
+## 9. Ошибка `panic: non-contiguous repeated field`
+
+Причина: ранее в проекте использовался вручную собранный protobuf-descriptor в
+`pkg/proto/orchestrator.pb.go`, который мог быть несовместим с вашей версией
+`google.golang.org/protobuf`.
+
+Исправление в текущей версии:
+- protobuf runtime descriptor убран из рантайма MVP;
+- gRPC обмен выполняется через JSON codec (поверх gRPC), поэтому паника больше
+  не возникает;
+- API и структуры сообщений (`CreateSensorRequest`, `ReportSensorStatusRequest` и
+  т.д.) сохранены.
+
+После обновления репозитория выполните:
+
+```bash
+go mod tidy
+go run ./cmd/worker -listen :9100 -worker-id worker-1 -orchestrator-addr localhost:9000
+```
+
+В другом терминале:
+
+```bash
+go run ./cmd/orchestrator -listen :9000 -worker-addr localhost:9100 -sensor-id sensor-1 -worker-id worker-1 -interval-ms 1000
+```

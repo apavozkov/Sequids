@@ -26,7 +26,7 @@ func main() {
 	store := orchestrator.NewStore()
 	server := orchestrator.NewServer(store)
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.ForceServerCodec(orchestratorpb.NewJSONCodec()))
 	orchestratorpb.RegisterOrchestratorServiceServer(grpcServer, server)
 
 	listener, err := net.Listen("tcp", *listenAddr)
@@ -53,7 +53,7 @@ func main() {
 }
 
 func createSensor(ctx context.Context, store *orchestrator.Store, workerAddr, sensorID, workerID string, intervalMs int64) error {
-	conn, err := grpc.DialContext(ctx, workerAddr, grpc.WithInsecure())
+	conn, err := grpc.DialContext(ctx, workerAddr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.ForceCodec(orchestratorpb.NewJSONCodec())))
 	if err != nil {
 		return err
 	}

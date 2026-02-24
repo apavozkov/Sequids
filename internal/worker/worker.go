@@ -42,7 +42,7 @@ func (s *Service) ConnectOrchestrator(ctx context.Context) error {
 	if s.orchestratorAddr == "" {
 		return nil
 	}
-	conn, err := grpc.DialContext(ctx, s.orchestratorAddr, grpc.WithInsecure())
+	conn, err := grpc.DialContext(ctx, s.orchestratorAddr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.ForceCodec(orchestratorpb.NewJSONCodec())))
 	if err != nil {
 		return err
 	}

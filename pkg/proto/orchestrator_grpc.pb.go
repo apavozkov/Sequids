@@ -1,21 +1,17 @@
-// Code generated manually for the MVP; mimics protoc-gen-go-grpc output.
-// source: orchestrator.proto
-
 package orchestratorpb
 
 import (
 	context "context"
+	"errors"
+
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 )
 
 const (
-	WorkerService_CreateSensor_FullMethodName = "/orchestratorpb.WorkerService/CreateSensor"
+	WorkerService_CreateSensor_FullMethodName             = "/orchestratorpb.WorkerService/CreateSensor"
 	OrchestratorService_ReportSensorStatus_FullMethodName = "/orchestratorpb.OrchestratorService/ReportSensorStatus"
 )
 
-// WorkerServiceClient is the client API for WorkerService service.
 type WorkerServiceClient interface {
 	CreateSensor(ctx context.Context, in *CreateSensorRequest, opts ...grpc.CallOption) (*CreateSensorResponse, error)
 }
@@ -37,17 +33,15 @@ func (c *workerServiceClient) CreateSensor(ctx context.Context, in *CreateSensor
 	return out, nil
 }
 
-// WorkerServiceServer is the server API for WorkerService service.
 type WorkerServiceServer interface {
 	CreateSensor(context.Context, *CreateSensorRequest) (*CreateSensorResponse, error)
 	mustEmbedUnimplementedWorkerServiceServer()
 }
 
-// UnimplementedWorkerServiceServer must be embedded to have forward compatible implementations.
 type UnimplementedWorkerServiceServer struct{}
 
 func (UnimplementedWorkerServiceServer) CreateSensor(context.Context, *CreateSensorRequest) (*CreateSensorResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateSensor not implemented")
+	return nil, errors.New("method CreateSensor not implemented")
 }
 func (UnimplementedWorkerServiceServer) mustEmbedUnimplementedWorkerServiceServer() {}
 
@@ -63,31 +57,21 @@ func _WorkerService_CreateSensor_Handler(srv interface{}, ctx context.Context, d
 	if interceptor == nil {
 		return srv.(WorkerServiceServer).CreateSensor(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: WorkerService_CreateSensor_FullMethodName,
-	}
+	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: WorkerService_CreateSensor_FullMethodName}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(WorkerServiceServer).CreateSensor(ctx, req.(*CreateSensorRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// WorkerService_ServiceDesc is the grpc.ServiceDesc for WorkerService service.
 var WorkerService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "orchestratorpb.WorkerService",
 	HandlerType: (*WorkerServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "CreateSensor",
-			Handler:    _WorkerService_CreateSensor_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "orchestrator.proto",
+	Methods:     []grpc.MethodDesc{{MethodName: "CreateSensor", Handler: _WorkerService_CreateSensor_Handler}},
+	Streams:     []grpc.StreamDesc{},
+	Metadata:    "orchestrator.proto",
 }
 
-// OrchestratorServiceClient is the client API for OrchestratorService service.
 type OrchestratorServiceClient interface {
 	ReportSensorStatus(ctx context.Context, in *ReportSensorStatusRequest, opts ...grpc.CallOption) (*ReportSensorStatusResponse, error)
 }
@@ -109,17 +93,15 @@ func (c *orchestratorServiceClient) ReportSensorStatus(ctx context.Context, in *
 	return out, nil
 }
 
-// OrchestratorServiceServer is the server API for OrchestratorService service.
 type OrchestratorServiceServer interface {
 	ReportSensorStatus(context.Context, *ReportSensorStatusRequest) (*ReportSensorStatusResponse, error)
 	mustEmbedUnimplementedOrchestratorServiceServer()
 }
 
-// UnimplementedOrchestratorServiceServer must be embedded to have forward compatible implementations.
 type UnimplementedOrchestratorServiceServer struct{}
 
 func (UnimplementedOrchestratorServiceServer) ReportSensorStatus(context.Context, *ReportSensorStatusRequest) (*ReportSensorStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReportSensorStatus not implemented")
+	return nil, errors.New("method ReportSensorStatus not implemented")
 }
 func (UnimplementedOrchestratorServiceServer) mustEmbedUnimplementedOrchestratorServiceServer() {}
 
@@ -135,27 +117,17 @@ func _OrchestratorService_ReportSensorStatus_Handler(srv interface{}, ctx contex
 	if interceptor == nil {
 		return srv.(OrchestratorServiceServer).ReportSensorStatus(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: OrchestratorService_ReportSensorStatus_FullMethodName,
-	}
+	info := &grpc.UnaryServerInfo{Server: srv, FullMethod: OrchestratorService_ReportSensorStatus_FullMethodName}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(OrchestratorServiceServer).ReportSensorStatus(ctx, req.(*ReportSensorStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// OrchestratorService_ServiceDesc is the grpc.ServiceDesc for OrchestratorService service.
 var OrchestratorService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "orchestratorpb.OrchestratorService",
 	HandlerType: (*OrchestratorServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "ReportSensorStatus",
-			Handler:    _OrchestratorService_ReportSensorStatus_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "orchestrator.proto",
+	Methods:     []grpc.MethodDesc{{MethodName: "ReportSensorStatus", Handler: _OrchestratorService_ReportSensorStatus_Handler}},
+	Streams:     []grpc.StreamDesc{},
+	Metadata:    "orchestrator.proto",
 }
-

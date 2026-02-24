@@ -33,7 +33,7 @@ func main() {
 		}
 	}()
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.ForceServerCodec(orchestratorpb.NewJSONCodec()))
 	orchestratorpb.RegisterWorkerServiceServer(grpcServer, service)
 
 	listener, err := net.Listen("tcp", *listenAddr)
