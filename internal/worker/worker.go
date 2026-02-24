@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	orchestratorpb "github.com/apavozkov/sequids/pkg/proto/orchestratorpb"
+	orchestratorpb "github.com/apavozkov/sequids/pkg/proto"
 	"google.golang.org/grpc"
 )
 

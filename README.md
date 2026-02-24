@@ -118,3 +118,46 @@ sensor=sensor-1 value=42.1234
 ## 7. Остановка
 
 Обе программы корректно завершаются по `Ctrl+C`.
+
+## 8. Частая ошибка с `no matching versions for query "latest"`
+
+Если видите ошибку:
+
+```text
+go: finding module for package github.com/<you>/sequids/pkg/proto/orchestratorpb
+go: ... no matching versions for query "latest"
+```
+
+это значит, что импорт указывает на несуществующий пакет
+`pkg/proto/orchestratorpb`.
+
+Правильно в этом проекте импортировать пакет так:
+
+```go
+orchestratorpb "github.com/<you>/sequids/pkg/proto"
+```
+
+Проверьте 3 вещи:
+
+1. В `go.mod`:
+   ```go
+   module github.com/<you>/sequids
+   ```
+2. Во всех `import` в `cmd/*` и `internal/*`:
+   `github.com/<you>/sequids/pkg/proto` (без `/orchestratorpb` в конце).
+3. В `proto/orchestrator.proto`:
+   ```proto
+   option go_package = "github.com/<you>/sequids/pkg/proto;orchestratorpb";
+   ```
+
+После исправления:
+
+```bash
+go mod tidy
+```
+
+Если репозиторий приватный, дополнительно:
+
+```bash
+go env -w GOPRIVATE=github.com/<you>/*
+```

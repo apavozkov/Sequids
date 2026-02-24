@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package orchestratorpb;
 
-option go_package = "github.com/apavozkov/sequids/pkg/proto/orchestratorpb";
+option go_package = "github.com/apavozkov/sequids/pkg/proto;orchestratorpb";
 
 message CreateSensorRequest {
   string sensor_id = 1;

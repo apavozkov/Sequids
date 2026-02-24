@@ -11,7 +11,7 @@ import (
 	"time"
 
 	orchestrator "github.com/apavozkov/sequids/internal/orchestrator"
-	orchestratorpb "github.com/apavozkov/sequids/pkg/proto/orchestratorpb"
+	orchestratorpb "github.com/apavozkov/sequids/pkg/proto"
 	"google.golang.org/grpc"
 )
 

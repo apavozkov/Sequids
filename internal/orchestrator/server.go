@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	orchestratorpb "github.com/apavozkov/sequids/pkg/proto/orchestratorpb"
+	orchestratorpb "github.com/apavozkov/sequids/pkg/proto"
 )
 
 type Server struct {
