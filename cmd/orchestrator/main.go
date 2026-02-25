@@ -31,13 +31,13 @@ func main() {
 
 	listener, err := net.Listen("tcp", *listenAddr)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("ошибка прослушивания: %v", err)
 	}
 
 	go func() {
 		log.Printf("orchestrator listening on %s", *listenAddr)
 		if err := grpcServer.Serve(listener); err != nil {
-			log.Fatalf("orchestrator gRPC server error: %v", err)
+			log.Fatalf("ошибка gRPC сервера у оркестратора: %v", err)
 		}
 	}()
 
@@ -45,7 +45,7 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := createSensor(ctx, store, *workerAddr, *sensorID, *workerID, *intervalMs); err != nil {
-			log.Printf("failed to create sensor: %v", err)
+			log.Printf("ошибка при создании устройства: %v", err)
 		}
 	}
 
@@ -78,7 +78,7 @@ func createSensor(ctx context.Context, store *orchestrator.Store, workerAddr, se
 		LastStatus: resp.GetStatus(),
 	})
 
-	log.Printf("create sensor response: %s", resp.GetStatus())
+	log.Printf("создание ответа устройства: %s", resp.GetStatus())
 	return nil
 }
 
@@ -86,6 +86,6 @@ func waitForShutdown(server *grpc.Server) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
-	log.Printf("shutdown signal received")
+	log.Printf("получен сигнал выключения")
 	server.GracefulStop()
 }
