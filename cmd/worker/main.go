@@ -25,7 +25,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := service.ConnectOrchestrator(ctx); err != nil {
-		log.Printf("unable to connect to orchestrator: %v", err)
+		log.Printf("не удаётся подключиться к оркестратору: %v", err)
 	}
 	defer func() {
 		if err := service.Close(); err != nil {
@@ -38,13 +38,13 @@ func main() {
 
 	listener, err := net.Listen("tcp", *listenAddr)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("ошибка при прослушивании: %v", err)
 	}
 
 	go func() {
-		log.Printf("worker %s listening on %s", *workerID, *listenAddr)
+		log.Printf("воркер %s слушает %s", *workerID, *listenAddr)
 		if err := grpcServer.Serve(listener); err != nil {
-			log.Fatalf("worker gRPC server error: %v", err)
+			log.Fatalf("ошибка gRPC сервера воркера: %v", err)
 		}
 	}()
 
@@ -55,6 +55,6 @@ func waitForShutdown(server *grpc.Server) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
-	log.Printf("shutdown signal received")
+	log.Printf("получен сигнал выключения")
 	server.GracefulStop()
 }
