@@ -29,7 +29,7 @@ func main() {
 	}
 	defer func() {
 		if err := service.Close(); err != nil {
-			log.Printf("error closing orchestrator connection: %v", err)
+			log.Printf("ошибка при закрытии соединения с оркестратором: %v", err)
 		}
 	}()
 
