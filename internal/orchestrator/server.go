@@ -17,7 +17,7 @@ func NewServer(store *Store) *Server {
 }
 
 func (s *Server) ReportSensorStatus(ctx context.Context, req *orchestratorpb.ReportSensorStatusRequest) (*orchestratorpb.ReportSensorStatusResponse, error) {
-	log.Printf("sensor report: id=%s status=%s value=%.4f", req.GetSensorId(), req.GetStatus(), req.GetValue())
+	log.Printf("отчёт об устройстве: id=%s статус=%s значение=%.4f", req.GetSensorId(), req.GetStatus(), req.GetValue())
 	if s.store != nil {
 		s.store.UpdateStatus(req.GetSensorId(), req.GetStatus(), req.GetValue())
 	}
