@@ -67,7 +67,7 @@ func (s *Service) CreateSensor(ctx context.Context, req *orchestratorpb.CreateSe
 	s.mu.Lock()
 	if _, exists := s.sensors[req.GetSensorId()]; exists {
 		s.mu.Unlock()
-		return &orchestratorpb.CreateSensorResponse{Status: "already_exists"}, nil
+		return &orchestratorpb.CreateSensorResponse{Status: "уже_существует"}, nil
 	}
 	sensor := &Sensor{
 		id:       req.GetSensorId(),
@@ -77,17 +77,17 @@ func (s *Service) CreateSensor(ctx context.Context, req *orchestratorpb.CreateSe
 	s.sensors[req.GetSensorId()] = sensor
 	s.mu.Unlock()
 
-	log.Printf("worker %s created sensor %s with interval %s", s.workerID, sensor.id, sensor.interval)
+	log.Printf("воркер %s создал устройство %s с интервалом публикации %s", s.workerID, sensor.id, sensor.interval)
 	go s.runSensor(sensor)
 
-	return &orchestratorpb.CreateSensorResponse{Status: "created"}, nil
+	return &orchestratorpb.CreateSensorResponse{Status: "создан"}, nil
 }
 
 func (s *Service) runSensor(sensor *Sensor) {
 	ticker := time.NewTicker(sensor.interval)
 	defer ticker.Stop()
 
-	s.reportStatus(sensor.id, "created", 0)
+	s.reportStatus(sensor.id, "создан", 0)
 
 	for {
 		select {
@@ -95,8 +95,8 @@ func (s *Service) runSensor(sensor *Sensor) {
 			return
 		case <-ticker.C:
 			value := s.rng.Float64() * 100
-			fmt.Printf("sensor=%s value=%.4f\n", sensor.id, value)
-			s.reportStatus(sensor.id, "published", value)
+			fmt.Printf("устройство=%s значение=%.4f\n", sensor.id, value)
+			s.reportStatus(sensor.id, "опубликован", value)
 		}
 	}
 }
