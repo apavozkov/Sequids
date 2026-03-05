@@ -1,0 +1,21 @@
+anomalies:
+  mild_sensor_noise:
+    description: "Слабый случайный шум АЦП/канала связи"
+    kind: noise
+    probability: 0.2
+    amplitude: 0.25
+  severe_false_data_spike:
+    description: "Ложные выбросы из-за деградации сенсора или помех"
+    kind: false_data
+    probability: 0.05
+    amplitude: 8
+  slow_positive_drift:
+    description: "Плавный дрейф калибровки вверх"
+    kind: drift
+    probability: 0.15
+    drift_per_sec: 0.01
+  intermittent_negative_drift:
+    description: "Периодический отрицательный дрейф"
+    kind: drift
+    probability: 0.07
+    drift_per_sec: -0.02

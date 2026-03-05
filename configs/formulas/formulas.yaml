@@ -1,0 +1,21 @@
+formulas:
+  temp_daily_sine:
+    description: "Температура воздуха в помещении: плавные суточные колебания"
+    applies_to: ["temperature"]
+    expression: "22 + 3*sin(t/120)"
+  humidity_inverse_wave:
+    description: "Влажность обратно коррелирует с ростом температуры"
+    applies_to: ["humidity"]
+    expression: "55 - 5*sin(t/120)"
+  pressure_micro_drift:
+    description: "Атмосферное давление с медленным трендом и малой волной"
+    applies_to: ["pressure"]
+    expression: "748 + 0.02*t + 0.8*cos(t/200)"
+  co2_occupancy_cycle:
+    description: "CO2 растет в часы присутствия людей и периодически падает"
+    applies_to: ["co2"]
+    expression: "500 + 120*sin(t/90) + 30*cos(t/20)"
+  vibration_machine_periodic:
+    description: "Вибрация станка с рабочей периодикой и затухающим компонентом"
+    applies_to: ["vibration"]
+    expression: "1.2 + 0.4*sin(t/8) + 0.1*cos(t/3)"
