@@ -14,6 +14,8 @@ import (
 	"unsafe"
 )
 
+var sqliteTransient = C.sqlite3_destructor_type(unsafe.Pointer(uintptr(^uintptr(0))))
+
 type SQLiteStore struct {
 	path string
 	db   *C.sqlite3
@@ -78,7 +80,7 @@ func (s *SQLiteStore) GetScenario(ctx context.Context, id string) (string, error
 
 	cid := C.CString(id)
 	defer C.free(unsafe.Pointer(cid))
-	C.sqlite3_bind_text(stmt, 1, cid, -1, nil)
+	C.sqlite3_bind_text(stmt, 1, cid, -1, sqliteTransient)
 
 	if rc := C.sqlite3_step(stmt); rc == C.SQLITE_ROW {
 		text := C.sqlite3_column_text(stmt, 0)
@@ -111,7 +113,7 @@ func (s *SQLiteStore) execPrepared(query string, params ...string) error {
 	defer C.sqlite3_finalize(stmt)
 	for i, p := range params {
 		cp := C.CString(p)
-		C.sqlite3_bind_text(stmt, C.int(i+1), cp, -1, nil)
+		C.sqlite3_bind_text(stmt, C.int(i+1), cp, -1, sqliteTransient)
 		C.free(unsafe.Pointer(cp))
 	}
 	if rc := C.sqlite3_step(stmt); rc != C.SQLITE_DONE {
