@@ -65,6 +65,9 @@ func run() error {
 	_ = fs.Parse(os.Args[1:])
 
 	logger := logging.New()
+	if err := mqtt.EnsureClientAvailable(); err != nil {
+		return err
+	}
 	m := &metrics.Registry{}
 	runtime := worker.NewRuntime(logger, m, mqtt.MosquittoAdapter{Host: mqttHost, Port: mqttPort}, influxURL, influxToken, influxOrg, influxBucket)
 

@@ -3,6 +3,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+if ! command -v mosquitto_pub >/dev/null 2>&1; then
+  echo "ERROR: mosquitto_pub not found in PATH."
+  echo "Install it on Ubuntu: sudo apt update && sudo apt install -y mosquitto-clients"
+  exit 1
+fi
+
 ./scripts/stop_demo.sh || true
 
 go run ./cmd/central serve -rpc-addr :50051 -metrics-addr :8080 -db ./sequids.db -formulas ./configs/formulas/formulas.yaml -anomalies ./configs/anomalies/anomalies.yaml &

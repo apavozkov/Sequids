@@ -105,6 +105,12 @@ devices:
 
 ## Развёртывание инфраструктуры (Grafana/Telegraf/InfluxDB/MQTT)
 
+Перед запуском локального демо на хосте установите MQTT CLI клиент:
+```bash
+sudo apt update && sudo apt install -y mosquitto-clients
+```
+(нужен бинарник `mosquitto_pub`).
+
 ## 1) MQTT broker (Mosquitto)
 Файл: `deployments/mosquitto.conf`.
 - Для MVP включён anonymous доступ и listener 1883.
@@ -175,6 +181,9 @@ go run ./cmd/central run -rpc 127.0.0.1:50051 -scenario <SCENARIO_ID> -seed 42
 
 
 ## Частые ошибки запуска и как исправить
+- `mosquitto_pub not found` или `publish failed ... executable file not found`:
+  1. Установите клиент: `sudo apt update && sudo apt install -y mosquitto-clients`
+  2. Проверьте: `which mosquitto_pub`
 - `address already in use` для `:50051` или `:50052`:
   1. Остановите старые процессы: `./scripts/stop_demo.sh`
   2. Либо запустите с другими портами: `-rpc-addr :50151` / `-rpc-addr :50152`
