@@ -3,6 +3,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+./scripts/stop_demo.sh || true
+
 go run ./cmd/central serve -rpc-addr :50051 -metrics-addr :8080 -db ./sequids.db -formulas ./configs/formulas/formulas.yaml -anomalies ./configs/anomalies/anomalies.yaml &
 CENTRAL_PID=$!
 sleep 1
