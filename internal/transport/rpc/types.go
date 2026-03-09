@@ -7,31 +7,44 @@ type RegisterWorkerArgs struct {
 	Address  string
 }
 
-type RegisterWorkerReply struct{ Accepted bool }
+type RegisterWorkerReply struct{
+	Accepted bool
+}
 
 type HeartbeatArgs struct {
 	WorkerID    string
 	VirtualLoad int
 }
 
-type HeartbeatReply struct{ OK bool }
+type HeartbeatReply struct{
+	OK bool
+}
 
 type PushScenarioArgs struct {
 	Name string
 	DSL  string
 }
 
-type PushScenarioReply struct{ ScenarioID string }
+type PushScenarioReply struct{
+	ScenarioID string
+}
 
 type RunExperimentArgs struct {
 	ScenarioID string
 	Seed       int64
 }
 
-type RunExperimentReply struct{ RunID string }
+type RunExperimentReply struct{
+	RunID string
+}
 
-type AssignRoleArgs struct{ IsMaster bool }
-type AssignRoleReply struct{ OK bool }
+type AssignRoleArgs struct{
+	IsMaster bool
+}
+
+type AssignRoleReply struct{
+	OK bool
+}
 
 type StartWorkloadArgs struct {
 	RunID    string
@@ -40,4 +53,6 @@ type StartWorkloadArgs struct {
 	IsMaster bool
 }
 
-type StartWorkloadReply struct{ Started bool }
+type StartWorkloadReply struct{
+	Started bool
+}
