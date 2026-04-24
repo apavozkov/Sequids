@@ -14,6 +14,13 @@ type Device struct {
 	Formula     string
 	AnomalyRefs []string
 	Anomalies   []Anomaly
+
+	Gain            float64
+	Offset          float64
+	ClampMin        *float64
+	ClampMax        *float64
+	StartupDelaySec float64
+	JitterRatio     float64
 }
 
 type Anomaly struct {
@@ -21,4 +28,6 @@ type Anomaly struct {
 	Probability float64
 	Amplitude   float64
 	DriftPerSec float64
+	DurationSec float64
+	HoldSec     float64
 }
