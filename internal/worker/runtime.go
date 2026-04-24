@@ -237,8 +237,8 @@ func (r *Runtime) writeInflux(p DataPoint) error {
 	if r.influxURL == "" || r.influxToken == "" {
 		return nil
 	}
-	line := fmt.Sprintf("device_metrics,device_id=%s,topic=%s,source=%s value=%f %d",
-		escapeTag(p.DeviceID), escapeTag(p.Topic), escapeTag(p.Source), p.Value, p.TS.UnixNano())
+	line := fmt.Sprintf("device_metrics,run_id=%s,device_id=%s,topic=%s,source=%s value=%f %d",
+		escapeTag(p.RunID), escapeTag(p.DeviceID), escapeTag(p.Topic), escapeTag(p.Source), p.Value, p.TS.UnixNano())
 	endpoint := fmt.Sprintf("%s/api/v2/write?org=%s&bucket=%s&precision=ns", strings.TrimRight(r.influxURL, "/"), r.org, r.bucket)
 	req, _ := http.NewRequest(http.MethodPost, endpoint, bytes.NewBufferString(line))
 	req.Header.Set("Authorization", "Token "+r.influxToken)

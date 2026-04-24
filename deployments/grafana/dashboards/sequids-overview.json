@@ -1,0 +1,93 @@
+{
+  "id": null,
+  "uid": "sequids-overview",
+  "title": "Sequids Overview",
+  "tags": ["sequids", "ops"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": {"from": "now-1h", "to": "now"},
+  "timezone": "",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Events/sec (central + worker)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "influxdb", "uid": "influxdb-sequids"},
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"prometheus\" and r._field == \"sequids_events_total\")\n  |> derivative(unit: 1s, nonNegative: true)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"events_per_sec\")"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}}
+    },
+    {
+      "type": "timeseries",
+      "title": "Errors/sec (central + worker)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "influxdb", "uid": "influxdb-sequids"},
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"metrics\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"prometheus\" and r._field == \"sequids_errors_total\")\n  |> derivative(unit: 1s, nonNegative: true)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"errors_per_sec\")"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}}
+    },
+    {
+      "type": "stat",
+      "title": "Central total events",
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 8},
+      "datasource": {"type": "influxdb", "uid": "influxdb-sequids"},
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"metrics\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"prometheus\" and r._field == \"sequids_events_total\" and r.url == \"http://central:8080/metrics\")\n  |> last()"
+        }
+      ],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "type": "stat",
+      "title": "Worker total events",
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 8},
+      "datasource": {"type": "influxdb", "uid": "influxdb-sequids"},
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"metrics\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"prometheus\" and r._field == \"sequids_events_total\" and r.url == \"http://worker:8090/metrics\")\n  |> last()"
+        }
+      ],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "type": "stat",
+      "title": "Central total errors",
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 8},
+      "datasource": {"type": "influxdb", "uid": "influxdb-sequids"},
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"metrics\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"prometheus\" and r._field == \"sequids_errors_total\" and r.url == \"http://central:8080/metrics\")\n  |> last()"
+        }
+      ],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "type": "stat",
+      "title": "Worker total errors",
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 8},
+      "datasource": {"type": "influxdb", "uid": "influxdb-sequids"},
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: \"metrics\")\n  |> range(start: -24h)\n  |> filter(fn: (r) => r._measurement == \"prometheus\" and r._field == \"sequids_errors_total\" and r.url == \"http://worker:8090/metrics\")\n  |> last()"
+        }
+      ],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    }
+  ]
+}
