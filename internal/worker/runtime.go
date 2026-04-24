@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -27,6 +28,11 @@ type DataPoint struct {
 	TS       time.Time
 }
 
+type runState struct {
+	cancel  func()
+	devices int
+}
+
 type Runtime struct {
 	logger      *slog.Logger
 	metrics     *metrics.Registry
@@ -39,10 +45,13 @@ type Runtime struct {
 	bus      chan DataPoint
 	isMaster atomic.Bool
 	load     atomic.Int64
+
+	mu   sync.RWMutex
+	runs map[string]runState
 }
 
 func NewRuntime(logger *slog.Logger, m *metrics.Registry, pub mqtt.Publisher, influxURL, influxToken, org, bucket string) *Runtime {
-	r := &Runtime{logger: logger, metrics: m, pub: pub, influxURL: influxURL, influxToken: influxToken, org: org, bucket: bucket, bus: make(chan DataPoint, 4096)}
+	r := &Runtime{logger: logger, metrics: m, pub: pub, influxURL: influxURL, influxToken: influxToken, org: org, bucket: bucket, bus: make(chan DataPoint, 4096), runs: map[string]runState{}}
 	go r.listenerLoop(context.Background())
 	return r
 }
@@ -50,56 +59,153 @@ func NewRuntime(logger *slog.Logger, m *metrics.Registry, pub mqtt.Publisher, in
 func (r *Runtime) SetMaster(v bool) { r.isMaster.Store(v) }
 func (r *Runtime) VirtualLoad() int { return int(r.load.Load()) }
 
+func (r *Runtime) Status() (activeRuns, activeDevices int) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, st := range r.runs {
+		activeDevices += st.devices
+	}
+	return len(r.runs), activeDevices
+}
+
 func (r *Runtime) Start(ctx context.Context, runID string, seed int64, devices []scenario.Device) {
-	var wg sync.WaitGroup
+	r.Stop(runID)
+	runCtx, cancel := context.WithCancel(ctx)
+	r.mu.Lock()
+	r.runs[runID] = runState{cancel: cancel, devices: len(devices)}
+	r.mu.Unlock()
+
 	for idx, device := range devices {
 		d := device
-		wg.Add(1)
 		go func(offset int64) {
-			defer wg.Done()
-			r.runDevice(ctx, rand.New(rand.NewSource(seed+offset+1)), runID, d)
+			r.runDevice(runCtx, rand.New(rand.NewSource(seed+offset+1)), runID, d)
 		}(int64(idx))
 	}
-	go func() { wg.Wait() }()
+}
+
+func (r *Runtime) Stop(runID string) bool {
+	r.mu.Lock()
+	st, ok := r.runs[runID]
+	if ok {
+		delete(r.runs, runID)
+	}
+	r.mu.Unlock()
+	if ok {
+		st.cancel()
+	}
+	return ok
 }
 
 func (r *Runtime) runDevice(ctx context.Context, rng *rand.Rand, runID string, d scenario.Device) {
 	r.load.Add(1)
 	defer r.load.Add(-1)
+	defer r.cleanupRun(runID)
+
 	if d.FrequencyHz <= 0 {
 		d.FrequencyHz = 1
 	}
-	ticker := time.NewTicker(time.Duration(float64(time.Second) / d.FrequencyHz))
-	defer ticker.Stop()
-	start := time.Now()
-	for {
+	if d.Gain == 0 {
+		d.Gain = 1
+	}
+	if d.StartupDelaySec > 0 {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			t := time.Since(start).Seconds()
-			value := evalFormula(d.Formula, t)
-			for _, a := range d.Anomalies {
-				if rng.Float64() <= a.Probability {
-					switch a.Kind {
-					case "noise", "false_data":
-						value += (rng.Float64()*2 - 1) * a.Amplitude
-					case "drift":
-						value += t * a.DriftPerSec
-					}
-				}
-			}
-			msg := fmt.Sprintf(`{"run_id":"%s","device_id":"%s","value":%f,"ts":"%s"}`,
-				runID, d.ID, value, time.Now().UTC().Format(time.RFC3339Nano))
-			if err := r.pub.Publish(ctx, d.Topic, []byte(msg)); err != nil {
-				r.metrics.IncErrors()
-				r.logger.Error("publish failed", "device", d.ID, "err", err)
-				continue
-			}
-			r.metrics.IncEvents()
-			r.enqueue(DataPoint{RunID: runID, DeviceID: d.ID, Topic: d.Topic, Value: value, Source: "virtual", TS: time.Now().UTC()})
+		case <-time.After(time.Duration(d.StartupDelaySec * float64(time.Second))):
 		}
 	}
+
+	start := time.Now()
+	var stuckUntil time.Time
+	var stuckValue float64
+
+	for {
+		wait := time.Duration(float64(time.Second) / d.FrequencyHz)
+		if d.JitterRatio > 0 {
+			jitter := 1 + (rng.Float64()*2-1)*d.JitterRatio
+			if jitter < 0.1 {
+				jitter = 0.1
+			}
+			wait = time.Duration(float64(wait) * jitter)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(wait):
+		}
+
+		t := time.Since(start).Seconds()
+		value := evalFormula(d.Formula, t)*d.Gain + d.Offset
+		if d.ClampMin != nil {
+			value = math.Max(value, *d.ClampMin)
+		}
+		if d.ClampMax != nil {
+			value = math.Min(value, *d.ClampMax)
+		}
+
+		now := time.Now()
+		if now.Before(stuckUntil) {
+			value = stuckValue
+		}
+		skipPublish := false
+		delaySec := 0.0
+		for _, a := range d.Anomalies {
+			if rng.Float64() > a.Probability {
+				continue
+			}
+			switch a.Kind {
+			case "noise", "false_data", "spike":
+				value += (rng.Float64()*2 - 1) * a.Amplitude
+			case "drift":
+				value += t * a.DriftPerSec
+			case "dropout":
+				skipPublish = true
+			case "stuck":
+				if a.HoldSec > 0 {
+					stuckUntil = now.Add(time.Duration(a.HoldSec * float64(time.Second)))
+					stuckValue = value
+				}
+			case "delay":
+				if a.DurationSec > delaySec {
+					delaySec = a.DurationSec
+				}
+			}
+		}
+		if skipPublish {
+			continue
+		}
+		if delaySec > 0 {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Duration(delaySec * float64(time.Second))):
+			}
+		}
+
+		msg := fmt.Sprintf(`{"run_id":"%s","device_id":"%s","value":%f,"ts":"%s"}`,
+			runID, d.ID, value, time.Now().UTC().Format(time.RFC3339Nano))
+		if err := r.pub.Publish(ctx, d.Topic, []byte(msg)); err != nil {
+			r.metrics.IncErrors()
+			r.logger.Error("publish failed", "device", d.ID, "err", err)
+			continue
+		}
+		r.metrics.IncEvents()
+		r.enqueue(DataPoint{RunID: runID, DeviceID: d.ID, Topic: d.Topic, Value: value, Source: "virtual", TS: time.Now().UTC()})
+	}
+}
+
+func (r *Runtime) cleanupRun(runID string) {
+	r.mu.Lock()
+	st, ok := r.runs[runID]
+	if ok {
+		st.devices--
+		if st.devices <= 0 {
+			delete(r.runs, runID)
+		} else {
+			r.runs[runID] = st
+		}
+	}
+	r.mu.Unlock()
 }
 
 func (r *Runtime) enqueue(p DataPoint) {
