@@ -34,8 +34,14 @@ services:
     image: golang:1.23
     working_dir: /app
     volumes: ["../:/app"]
-    command: ["go", "run", "./cmd/central", "serve", "-grpc-addr", ":50051", "-metrics-addr", ":8080", "-db", "/app/sequids.db", "-formulas", "/app/configs/formulas/formulas.yaml", "-anomalies", "/app/configs/anomalies/anomalies.yaml"]
+    command:
+      - bash
+      - -lc
+      - |
+        apt-get update && apt-get install -y --no-install-recommends gcc libsqlite3-dev &&
+        go run ./cmd/central serve           -grpc-addr :50051           -metrics-addr :8080           -db /app/sequids.db           -formulas /app/configs/formulas/formulas.yaml           -anomalies /app/configs/anomalies/anomalies.yaml
     ports: ["8080:8080", "50051:50051"]
+    restart: unless-stopped
 
   worker:
     image: golang:1.23
@@ -57,3 +63,4 @@ services:
           -influx-bucket metrics
     depends_on: [central, mosquitto, influxdb]
     ports: ["8090:8090", "50052:50052"]
+    restart: unless-stopped

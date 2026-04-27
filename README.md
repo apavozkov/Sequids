@@ -71,6 +71,17 @@ docker compose ps
 docker compose logs worker --tail=100
 ```
 
+
+Если после `docker compose up -d` CLI всё ещё даёт `connection refused` на `127.0.0.1:50051`, проверь:
+```bash
+cd deployments
+docker compose ps
+docker compose logs central --tail=100
+docker compose logs worker --tail=100
+```
+
+В этой версии compose central автоматически устанавливает `gcc` + `libsqlite3-dev` (нужно для cgo SQLite), а worker устанавливает `mosquitto-clients` перед стартом.
+
 Важно: данные device-графиков появятся после запуска эксперимента:
 ```bash
 go run ./cmd/sequidsctl start -grpc 127.0.0.1:50051 -scenario-file ./examples/greenhouse.dsl -scenario-name greenhouse -seed 42
