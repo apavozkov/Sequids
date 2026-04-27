@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -116,7 +117,7 @@ func run() error {
 		}
 	}()
 
-	if err := register(centralGRPC, workerID, listenToAdvertise(grpcAddr)); err != nil {
+	if err := registerWithRetry(ctx, logger, centralGRPC, workerID, listenToAdvertise(grpcAddr)); err != nil {
 		return err
 	}
 	go heartbeatLoop(ctx, centralGRPC, workerID, runtime)
@@ -143,6 +144,25 @@ func register(centralGRPC, workerID, addr string) error {
 	client := orchestratorv1.NewOrchestratorServiceClient(conn)
 	_, err = client.RegisterWorker(context.Background(), &orchestratorv1.RegisterWorkerRequest{WorkerId: workerID, Address: addr})
 	return err
+}
+
+func registerWithRetry(ctx context.Context, logger *slog.Logger, centralGRPC, workerID, addr string) error {
+	backoff := 2 * time.Second
+	for {
+		err := register(centralGRPC, workerID, addr)
+		if err == nil {
+			return nil
+		}
+		logger.Warn("worker register failed, retrying", "err", err, "retry_in", backoff.String())
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(backoff):
+		}
+		if backoff < 15*time.Second {
+			backoff += time.Second
+		}
+	}
 }
 
 func heartbeatLoop(ctx context.Context, centralGRPC, workerID string, runtime *worker.Runtime) {

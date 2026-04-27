@@ -41,6 +41,19 @@ services:
     image: golang:1.23
     working_dir: /app
     volumes: ["../:/app"]
-    command: ["go", "run", "./cmd/worker", "-grpc-addr", "worker:50052", "-metrics-addr", ":8090", "-central-grpc", "central:50051", "-mqtt-host", "mosquitto", "-mqtt-port", "1883", "-influx-url", "http://influxdb:8086", "-influx-token", "sequids-token", "-influx-org", "sequids", "-influx-bucket", "metrics"]
+    command:
+      - bash
+      - -lc
+      - |
+        apt-get update && apt-get install -y --no-install-recommends mosquitto-clients &&
+        go run ./cmd/worker \
+          -grpc-addr worker:50052 \
+          -metrics-addr :8090 \
+          -central-grpc central:50051 \
+          -mqtt-host mosquitto -mqtt-port 1883 \
+          -influx-url http://influxdb:8086 \
+          -influx-token sequids-token \
+          -influx-org sequids \
+          -influx-bucket metrics
     depends_on: [central, mosquitto, influxdb]
     ports: ["8090:8090", "50052:50052"]

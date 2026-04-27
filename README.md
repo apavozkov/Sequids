@@ -52,48 +52,28 @@ go run ./cmd/sequidsctl logs -grpc 127.0.0.1:50051 -limit 100
 go run ./cmd/sequidsctl stop -grpc 127.0.0.1:50051 -run-id <RUN_ID>
 ```
 
-## DSL (расширено)
 
-Пример:
-```yaml
-name: greenhouse-hybrid-v2
-devices:
-  - id: temp-virt-1
-    type: temperature
-    topic: iot/greenhouse/temp
-    frequency_hz: 1
-    formula_ref: temp_daily_sine
-    gain: 1.0
-    offset: 0.2
-    clamp_min: -20
-    clamp_max: 60
-    jitter_ratio: 0.12
-    anomalies:
-      - anomaly_ref: mild_sensor_noise
-      - anomaly_ref: delayed_delivery
+### Docker Compose: почему раньше поднималось "не до конца" и что исправлено
 
-  - id: humidity-virt-1
-    type: humidity
-    topic: iot/greenhouse/humidity
-    frequency_hz: 0.5
-    formula_ref: humidity_inverse_wave
-    startup_delay_sec: 2
-    anomalies:
-      - anomaly_ref: intermittent_dropout
-      - kind: stuck
-        probability: 0.03
-        hold_sec: 8
+Исправлены две причины нестабильного старта в compose:
+1. Worker теперь регистрируется в central с retry (раньше при разовом fail завершался).
+2. В compose для worker добавлена установка `mosquitto-clients` перед запуском (нужен `mosquitto_pub`).
+
+Поэтому стандартный запуск теперь такой:
+```bash
+cd deployments
+docker compose up -d
 ```
 
+Проверка, что всё реально живо:
+```bash
+docker compose ps
+docker compose logs worker --tail=100
+```
 
-# статус системы и устройств
-go run ./cmd/sequidsctl status -grpc 127.0.0.1:50051
-
-# логи orchestrator
-go run ./cmd/sequidsctl logs -grpc 127.0.0.1:50051 -limit 100
-
-# остановка эксперимента
-go run ./cmd/sequidsctl stop -grpc 127.0.0.1:50051 -run-id <RUN_ID>
+Важно: данные device-графиков появятся после запуска эксперимента:
+```bash
+go run ./cmd/sequidsctl start -grpc 127.0.0.1:50051 -scenario-file ./examples/greenhouse.dsl -scenario-name greenhouse -seed 42
 ```
 
 ## DSL (расширено)
