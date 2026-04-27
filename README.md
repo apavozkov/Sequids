@@ -80,10 +80,18 @@ docker compose logs central --tail=100
 docker compose logs worker --tail=100
 ```
 
-<<<<<<< codex/replace-binary-rpc-with-grpc-and-protobuf-8xxojt
 В этой версии compose central автоматически устанавливает `gcc` + `libsqlite3-dev` (нужно для cgo SQLite), а worker устанавливает `mosquitto-clients` перед стартом. Для запуска используется явный путь `/usr/local/go/bin/go`, чтобы избежать ошибок `go: command not found` внутри shell-обёртки контейнера.
-=======
-В этой версии compose central автоматически устанавливает `gcc` + `libsqlite3-dev` (нужно для cgo SQLite), а worker устанавливает `mosquitto-clients` перед стартом.
+Если воркер внутри Docker запущен с дефолтным `-central-grpc localhost:50051`, он автоматически переключается на `central:50051`, чтобы не пытаться подключаться к `::1` внутри собственного контейнера.
+
+
+Если получаешь ошибку compose вида `services.grafana.environment.[0]: unexpected type map[string]interface {}`, значит в `environment` используется неверный list-формат (например `- KEY: value`).
+В этом репозитории используется корректный map-формат:
+```yaml
+environment:
+  GF_SECURITY_ADMIN_USER: admin
+  GF_SECURITY_ADMIN_PASSWORD: admin
+```
+В этой версии compose central автоматически устанавливает `gcc` + `libsqlite3-dev` (нужно для cgo SQLite), а worker устанавливает `mosquitto-clients` перед стартом. Для запуска используется явный путь `/usr/local/go/bin/go`, чтобы избежать ошибок `go: command not found` внутри shell-обёртки контейнера.
 >>>>>>> main
 
 Важно: данные device-графиков появятся после запуска эксперимента:
