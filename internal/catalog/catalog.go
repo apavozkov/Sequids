@@ -139,7 +139,6 @@ func (c *Catalog) ResolveScenario(in scenario.Scenario) (scenario.Scenario, erro
 			d.Formula = f.Expression
 		}
 		if len(d.AnomalyRefs) > 0 {
-			d.Anomalies = nil
 			for _, ref := range d.AnomalyRefs {
 				p, ok := c.Anomalies[ref]
 				if !ok {
