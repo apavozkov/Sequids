@@ -31,7 +31,7 @@ services:
       - ./grafana/dashboards:/etc/grafana/dashboards
 
   central:
-    image: golang:1.23
+    image: golang:1.25
     working_dir: /app
     volumes: ["../:/app"]
     command:
@@ -49,7 +49,7 @@ services:
     restart: unless-stopped
 
   worker:
-    image: golang:1.23
+    image: golang:1.25
     working_dir: /app
     volumes: ["../:/app"]
     command:
