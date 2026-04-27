@@ -91,8 +91,6 @@ environment:
   GF_SECURITY_ADMIN_USER: admin
   GF_SECURITY_ADMIN_PASSWORD: admin
 ```
-В этой версии compose central автоматически устанавливает `gcc` + `libsqlite3-dev` (нужно для cgo SQLite), а worker устанавливает `mosquitto-clients` перед стартом. Для запуска используется явный путь `/usr/local/go/bin/go`, чтобы избежать ошибок `go: command not found` внутри shell-обёртки контейнера.
->>>>>>> main
 
 Важно: данные device-графиков появятся после запуска эксперимента:
 ```bash
