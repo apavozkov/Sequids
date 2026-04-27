@@ -35,11 +35,16 @@ services:
     working_dir: /app
     volumes: ["../:/app"]
     command:
-      - bash
+      - /bin/sh
       - -lc
       - |
-        apt-get update && apt-get install -y --no-install-recommends gcc libsqlite3-dev &&
-        go run ./cmd/central serve           -grpc-addr :50051           -metrics-addr :8080           -db /app/sequids.db           -formulas /app/configs/formulas/formulas.yaml           -anomalies /app/configs/anomalies/anomalies.yaml
+        apt-get update && apt-get install -y --no-install-recommends gcc libsqlite3-dev && \
+        /usr/local/go/bin/go run ./cmd/central serve \
+          -grpc-addr :50051 \
+          -metrics-addr :8080 \
+          -db /app/sequids.db \
+          -formulas /app/configs/formulas/formulas.yaml \
+          -anomalies /app/configs/anomalies/anomalies.yaml
     ports: ["8080:8080", "50051:50051"]
     restart: unless-stopped
 
@@ -48,11 +53,11 @@ services:
     working_dir: /app
     volumes: ["../:/app"]
     command:
-      - bash
+      - /bin/sh
       - -lc
       - |
-        apt-get update && apt-get install -y --no-install-recommends mosquitto-clients &&
-        go run ./cmd/worker \
+        apt-get update && apt-get install -y --no-install-recommends mosquitto-clients && \
+        /usr/local/go/bin/go run ./cmd/worker \
           -grpc-addr worker:50052 \
           -metrics-addr :8090 \
           -central-grpc central:50051 \
