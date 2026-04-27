@@ -80,7 +80,11 @@ docker compose logs central --tail=100
 docker compose logs worker --tail=100
 ```
 
+<<<<<<< codex/replace-binary-rpc-with-grpc-and-protobuf-8xxojt
 В этой версии compose central автоматически устанавливает `gcc` + `libsqlite3-dev` (нужно для cgo SQLite), а worker устанавливает `mosquitto-clients` перед стартом. Для запуска используется явный путь `/usr/local/go/bin/go`, чтобы избежать ошибок `go: command not found` внутри shell-обёртки контейнера.
+=======
+В этой версии compose central автоматически устанавливает `gcc` + `libsqlite3-dev` (нужно для cgo SQLite), а worker устанавливает `mosquitto-clients` перед стартом.
+>>>>>>> main
 
 Важно: данные device-графиков появятся после запуска эксперимента:
 ```bash
