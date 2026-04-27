@@ -91,6 +91,9 @@ func run() error {
 	fs.StringVar(&influxOrg, "influx-org", "sequids", "influx org")
 	fs.StringVar(&influxBucket, "influx-bucket", "metrics", "influx bucket")
 	_ = fs.Parse(os.Args[1:])
+	if centralGRPC == "localhost:50051" && inDocker() {
+		centralGRPC = "central:50051"
+	}
 
 	logger := logging.New()
 	if err := mqtt.EnsureClientAvailable(); err != nil {
@@ -197,4 +200,9 @@ func isAddrInUse(err error) bool {
 		return strings.Contains(opErr.Err.Error(), "address already in use")
 	}
 	return strings.Contains(err.Error(), "address already in use")
+}
+
+func inDocker() bool {
+	_, err := os.Stat("/.dockerenv")
+	return err == nil
 }
