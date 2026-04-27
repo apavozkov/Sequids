@@ -92,6 +92,8 @@ environment:
   GF_SECURITY_ADMIN_PASSWORD: admin
 ```
 
+Для multi-worker в Docker обязательно задавай каждому воркеру уникальные `-grpc-addr` и `-advertise-addr` (например `worker:50052`, `worker2:50053`), иначе central может пытаться подключаться к loopback/одному и тому же адресу.
+
 Важно: данные device-графиков появятся после запуска эксперимента:
 ```bash
 go run ./cmd/sequidsctl start -grpc 127.0.0.1:50051 -scenario-file ./examples/greenhouse.dsl -scenario-name greenhouse -seed 42

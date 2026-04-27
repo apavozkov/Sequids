@@ -76,12 +76,13 @@ func main() {
 }
 
 func run() error {
-	var workerID, grpcAddr, metricsAddr, centralGRPC, mqttHost string
+	var workerID, grpcAddr, advertiseAddr, metricsAddr, centralGRPC, mqttHost string
 	var mqttPort int
 	var influxURL, influxToken, influxOrg, influxBucket string
 	fs := flag.NewFlagSet("worker", flag.ExitOnError)
 	fs.StringVar(&workerID, "id", "worker-1", "worker id")
 	fs.StringVar(&grpcAddr, "grpc-addr", ":50052", "worker grpc listen")
+	fs.StringVar(&advertiseAddr, "advertise-addr", "", "worker address advertised to central (host:port)")
 	fs.StringVar(&metricsAddr, "metrics-addr", ":8090", "metrics listen")
 	fs.StringVar(&centralGRPC, "central-grpc", "localhost:50051", "central grpc")
 	fs.StringVar(&mqttHost, "mqtt-host", "localhost", "mqtt host")
@@ -120,7 +121,7 @@ func run() error {
 		}
 	}()
 
-	if err := registerWithRetry(ctx, logger, centralGRPC, workerID, listenToAdvertise(grpcAddr)); err != nil {
+	if err := registerWithRetry(ctx, logger, centralGRPC, workerID, advertiseAddress(grpcAddr, advertiseAddr)); err != nil {
 		return err
 	}
 	go heartbeatLoop(ctx, centralGRPC, workerID, runtime)
@@ -187,8 +188,17 @@ func heartbeatLoop(ctx context.Context, centralGRPC, workerID string, runtime *w
 	}
 }
 
-func listenToAdvertise(listen string) string {
+func advertiseAddress(listen, explicit string) string {
+	if explicit != "" {
+		return explicit
+	}
 	if len(listen) > 0 && listen[0] == ':' {
+		if inDocker() {
+			hostname, err := os.Hostname()
+			if err == nil && hostname != "" {
+				return hostname + listen
+			}
+		}
 		return "127.0.0.1" + listen
 	}
 	return listen
