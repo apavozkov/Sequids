@@ -6,7 +6,7 @@ anomalies:
     amplitude: 0.25
   severe_false_data_spike:
     description: "Ложные выбросы из-за деградации сенсора или помех"
-    kind: false_data
+    kind: spike
     probability: 0.05
     amplitude: 8
   slow_positive_drift:
@@ -19,3 +19,17 @@ anomalies:
     kind: drift
     probability: 0.07
     drift_per_sec: -0.02
+  intermittent_dropout:
+    description: "Редкие пропуски телеметрии"
+    kind: dropout
+    probability: 0.03
+  stuck_signal_short:
+    description: "Сигнал застывает на последнем значении"
+    kind: stuck
+    probability: 0.04
+    hold_sec: 5
+  delayed_delivery:
+    description: "Искусственная задержка публикации"
+    kind: delay
+    probability: 0.06
+    duration_sec: 1.5

@@ -1,169 +1,31 @@
-# Sequids MVP (engineering VKR stand)
+# Sequids MVP (gRPC + Protobuf)
 
-## Ключевые изменения в этой версии
-1. **DSL теперь хранит только имена формул и аномалий** (`formula_ref`, `anomaly_ref`).
-2. **Каталоги формул/аномалий вынесены в отдельные файлы**:
-   - `configs/formulas/formulas.yaml`
-   - `configs/anomalies/anomalies.yaml`
-3. **Из orchestration flow удалён HTTP JSON API** (больше нет `/workers/register`, `/experiments/run` и т.п. по HTTP).
-4. Межкомпонентное взаимодействие central↔worker работает через **binary RPC транспорт** (`net/rpc`, TCP) как промежуточный этап.
-5. Метрики central/worker снимаются Telegraf-ом и пишутся в InfluxDB; device-метрики пишутся Listener-модулем воркера в InfluxDB.
+## Что сделано в этой версии
+- Central ↔ Worker полностью переведены на **gRPC + Protobuf**.
+- Удалён legacy пакет binary RPC (`net/rpc`).
+- Добавлен операторский CLI: `sequidsctl`.
+- Расширен DSL поведения датчиков и аномалий.
+- Добавлены RPC для stop/status/logs.
 
-> В репозитории сохранён protobuf-контракт (`api/proto/orchestrator.proto`). Ниже есть пошаговый migration-план, как довести текущую версию до **чистого gRPC+Protobuf**.
+## Быстрый старт
 
----
-
-## Архитектура
-### Central
-- RPC сервис `OrchestratorService`:
-  - `RegisterWorker`
-  - `Heartbeat`
-  - `PushScenario`
-  - `RunExperiment`
-- Выбор мастер-воркера по текущей нагрузке.
-- Назначение роли воркерам (`AssignRole`) и запуск нагрузок (`StartWorkload`).
-- Хранение сценариев в SQLite.
-
-### Worker
-- RPC сервис `WorkerService`:
-  - `AssignRole`
-  - `StartWorkload`
-- Эмуляция устройств с формулами и аномалиями.
-- In-memory шина данных + Listener на запись в InfluxDB.
-
-### Логика Listener
-- Если воркер мастер: пишет все локальные datapoint (виртуальные и реальные).
-- Если воркер не мастер: пишет только локальные datapoint от виртуальных датчиков.
-
----
-
-## DSL (подробно)
-
-### Пример сценария
-```yaml
-name: greenhouse-hybrid
-devices:
-  - id: temp-virt-1
-    type: temperature
-    topic: iot/greenhouse/temp
-    frequency_hz: 1
-    formula_ref: temp_daily_sine
-    anomalies:
-      - anomaly_ref: mild_sensor_noise
-      - anomaly_ref: slow_positive_drift
-```
-
-### Поля DSL
-#### Уровень сценария
-- `name` — имя сценария.
-- `devices` — список устройств.
-
-#### Устройство
-- `id` — идентификатор устройства.
-- `type` — тип датчика (temperature, humidity...).
-- `topic` — MQTT topic для публикации.
-- `frequency_hz` — частота генерации.
-- `formula_ref` — ссылка на формулу из каталога.
-- `anomalies` -> `anomaly_ref` — ссылки на профили аномалий из каталога.
-
-### Ограничения DSL (MVP)
-- Нет `if/when`.
-- Нет встроенных циклов/ветвлений.
-- Нет сложной schema-validation до запуска.
-
----
-
-## Каталог формул (`configs/formulas/formulas.yaml`)
-В файле уже добавлены примеры:
-- `temp_daily_sine` — температура с плавной синусоидой.
-- `humidity_inverse_wave` — влажность с обратной корреляцией к температуре.
-- `pressure_micro_drift` — давление с трендом + косинус.
-- `co2_occupancy_cycle` — циклическое изменение CO2 в присутствии людей.
-- `vibration_machine_periodic` — периодическая вибрация оборудования.
-
-Каждая формула содержит:
-- `description` — что моделирует;
-- `applies_to` — типы датчиков;
-- `expression` — математическое выражение.
-
----
-
-## Каталог аномалий (`configs/anomalies/anomalies.yaml`)
-Добавлены готовые профили:
-- `mild_sensor_noise` — слабый шум.
-- `severe_false_data_spike` — редкие ложные выбросы.
-- `slow_positive_drift` — медленный положительный дрейф.
-- `intermittent_negative_drift` — периодический отрицательный дрейф.
-
-Каждый профиль содержит:
-- `description`;
-- `kind` (`noise|false_data|drift`);
-- `probability`;
-- `amplitude` и/или `drift_per_sec`.
-
----
-
-## Развёртывание инфраструктуры (Grafana/Telegraf/InfluxDB/MQTT)
-
-Перед запуском локального демо на хосте установите MQTT CLI клиент:
-```bash
-sudo apt update && sudo apt install -y mosquitto-clients
-```
-(нужен бинарник `mosquitto_pub`).
-
-## 1) MQTT broker (Mosquitto)
-Файл: `deployments/mosquitto.conf`.
-- Для MVP включён anonymous доступ и listener 1883.
-- В production включить auth + ACL + TLS.
-
-## 2) InfluxDB
-В `docker-compose` используется авто-инициализация:
-- org: `sequids`
-- bucket: `metrics`
-- token: `sequids-token`
-
-## 3) Telegraf
-Файл: `deployments/telegraf.conf`.
-- `inputs.prometheus` читает:
-  - `http://central:8080/metrics`
-  - `http://worker:8090/metrics`
-- `outputs.influxdb_v2` пишет в Influx bucket `metrics`.
-
-## 4) Grafana
-Datasource provisioned автоматически (`deployments/grafana/provisioning/datasources/datasource.yaml`).
-После старта:
-1. открыть `http://localhost:3000`
-2. войти (admin/admin при первом входе обычно через UI Grafana)
-3. проверить datasource `InfluxDB-Sequids`
-4. строить панели по measurement:
-   - технические (`sequids_events_total`, `sequids_errors_total`)
-   - device (`device_metrics`)
-
-## 5) Запуск стенда
-```bash
-cd deployments
-docker compose up -d
-```
-
----
-
-## Запуск central/worker вручную
-### Central
+### 1) Запуск central
 ```bash
 go run ./cmd/central serve \
-  -rpc-addr :50051 \
+  -grpc-addr :50051 \
   -metrics-addr :8080 \
   -db ./sequids.db \
   -formulas ./configs/formulas/formulas.yaml \
   -anomalies ./configs/anomalies/anomalies.yaml
 ```
 
-### Worker
+### 2) Запуск worker
 ```bash
 go run ./cmd/worker \
-  -rpc-addr :50052 \
+  -id worker-1 \
+  -grpc-addr :50052 \
   -metrics-addr :8090 \
-  -central-rpc 127.0.0.1:50051 \
+  -central-grpc 127.0.0.1:50051 \
   -mqtt-host localhost -mqtt-port 1883 \
   -influx-url http://localhost:8086 \
   -influx-token sequids-token \
@@ -171,55 +33,179 @@ go run ./cmd/worker \
   -influx-bucket metrics
 ```
 
-### Загрузка сценария и запуск эксперимента
+### 3) Управление через CLI
 ```bash
-go run ./cmd/central push-scenario -rpc 127.0.0.1:50051 -file ./examples/greenhouse.dsl -name greenhouse
-go run ./cmd/central run -rpc 127.0.0.1:50051 -scenario <SCENARIO_ID> -seed 42
+# старт: загрузка сценария + запуск эксперимента
+go run ./cmd/sequidsctl start \
+  -grpc 127.0.0.1:50051 \
+  -scenario-file ./examples/greenhouse.dsl \
+  -scenario-name greenhouse-v2 \
+  -seed 42
+
+# статус системы и устройств
+go run ./cmd/sequidsctl status -grpc 127.0.0.1:50051
+
+# логи orchestrator
+go run ./cmd/sequidsctl logs -grpc 127.0.0.1:50051 -limit 100
+
+# остановка эксперимента
+go run ./cmd/sequidsctl stop -grpc 127.0.0.1:50051 -run-id <RUN_ID>
 ```
 
----
+
+### Docker Compose: почему раньше поднималось "не до конца" и что исправлено
+
+Исправлены две причины нестабильного старта в compose:
+1. Worker теперь регистрируется в central с retry (раньше при разовом fail завершался).
+2. В compose для worker добавлена установка `mosquitto-clients` перед запуском (нужен `mosquitto_pub`).
+
+Поэтому стандартный запуск теперь такой:
+```bash
+cd deployments
+docker compose up -d
+```
+
+Проверка, что всё реально живо:
+```bash
+docker compose ps
+docker compose logs worker --tail=100
+```
 
 
-## Частые ошибки запуска и как исправить
-- `mosquitto_pub not found` или `publish failed ... executable file not found`:
-  1. Установите клиент: `sudo apt update && sudo apt install -y mosquitto-clients`
-  2. Проверьте: `which mosquitto_pub`
-- `address already in use` для `:50051` или `:50052`:
-  1. Остановите старые процессы: `./scripts/stop_demo.sh`
-  2. Либо запустите с другими портами: `-rpc-addr :50151` / `-rpc-addr :50152`
-- `scenario <id> not found`:
-  1. Убедитесь, что сценарий был загружен именно в этот central (`-rpc <host:port>`).
-  2. Убедитесь, что central запущен с тем же `-db`, куда вы ранее пушили сценарий.
+Если после `docker compose up -d` CLI всё ещё даёт `connection refused` на `127.0.0.1:50051`, проверь:
+```bash
+cd deployments
+docker compose ps
+docker compose logs central --tail=100
+docker compose logs worker --tail=100
+```
 
-## Как довести до чистого gRPC+Protobuf (без legacy RPC)
-Сейчас транспорт бинарный RPC (TCP), чтобы убрать HTTP JSON и сохранить работоспособность в этой среде.
+В этой версии compose central автоматически устанавливает `gcc` + `libsqlite3-dev` (нужно для cgo SQLite), а worker устанавливает `mosquitto-clients` перед стартом.
 
-Чтобы перейти на **полный gRPC+Protobuf**:
-1. Установить инструменты:
-   - `protoc`
-   - `protoc-gen-go`
-   - `protoc-gen-go-grpc`
-2. Сгенерировать Go-код из `api/proto/orchestrator.proto`.
-3. Добавить зависимости в `go.mod`:
-   - `google.golang.org/grpc`
-   - `google.golang.org/protobuf`
-4. Заменить `net/rpc` сервер/клиенты в:
-   - `cmd/central/main.go`
-   - `cmd/worker/main.go`
-   - `internal/orchestrator/server.go`
-   на gRPC server/client (unary RPC).
-5. Оставить текущую доменную логику без изменений:
-   - балансировка мастер-воркера;
-   - резолв `formula_ref`/`anomaly_ref`;
-   - runtime + listener.
-6. После migration удалить пакет `internal/transport/rpc`.
+Важно: данные device-графиков появятся после запуска эксперимента:
+```bash
+go run ./cmd/sequidsctl start -grpc 127.0.0.1:50051 -scenario-file ./examples/greenhouse.dsl -scenario-name greenhouse -seed 42
+```
 
-Итог: транспорт станет строго gRPC+Protobuf, без промежуточных RPC-слоёв.
+## DSL (расширено)
 
----
+Пример:
+```yaml
+name: greenhouse-hybrid-v2
+devices:
+  - id: temp-virt-1
+    type: temperature
+    topic: iot/greenhouse/temp
+    frequency_hz: 1
+    formula_ref: temp_daily_sine
+    gain: 1.0
+    offset: 0.2
+    clamp_min: -20
+    clamp_max: 60
+    jitter_ratio: 0.12
+    anomalies:
+      - anomaly_ref: mild_sensor_noise
+      - anomaly_ref: delayed_delivery
+
+  - id: humidity-virt-1
+    type: humidity
+    topic: iot/greenhouse/humidity
+    frequency_hz: 0.5
+    formula_ref: humidity_inverse_wave
+    startup_delay_sec: 2
+    anomalies:
+      - anomaly_ref: intermittent_dropout
+      - kind: stuck
+        probability: 0.03
+        hold_sec: 8
+```
+
+### Новые поля поведения устройства
+- `gain`, `offset`
+- `clamp_min`, `clamp_max`
+- `startup_delay_sec`
+- `jitter_ratio`
+
+### Новые типы аномалий
+- `spike`
+- `dropout`
+- `stuck` (`hold_sec`)
+- `delay` (`duration_sec`)
+- также сохранены: `noise`, `false_data`, `drift`
+
+
+## Grafana дашборды (добавлено)
+
+В проекте добавлены 3 преднастроенных dashboard:
+- `Sequids Overview` — общая картина по событиям/ошибкам central+worker.
+- `Sequids Device Telemetry` — значения сенсоров, rate сообщений, последние значения по устройствам.
+- `Sequids Runs & Throughput` — метрики по `run_id` (пропускная способность и последние сэмплы).
+
+### Где лежат файлы
+- JSON: `deployments/grafana/dashboards/*.json`
+- provisioning: `deployments/grafana/provisioning/dashboards/dashboards.yaml`
+
+### Как установить/использовать
+1. Поднять инфраструктуру:
+   ```bash
+   cd deployments
+   docker compose up -d
+   ```
+2. Открыть Grafana: `http://localhost:3000` (логин/пароль обычно `admin/admin` на первом входе).
+3. Проверить, что datasource `InfluxDB-Sequids` уже создан автоматически.
+4. Перейти в папку **Dashboards → Sequids** и открыть нужный dashboard.
+5. Запустить эксперимент через CLI (`sequidsctl start`) и наблюдать панели в real-time.
+
+
+### Что показывает каждый dashboard и каждый блок
+
+#### 1) Sequids Overview
+- **Events/sec (service counters)**: скорость роста счётчика `sequids_events_total` (операционная активность сервисов).
+  - Как читать: чем выше линия, тем больше событий/сек обрабатывают central/worker.
+- **Errors/sec (service counters)**: скорость роста `sequids_errors_total`.
+  - Как читать: всплеск вверх = деградация (проблемы publish/influx/rpc и т.п.).
+- **Total events (latest)**: последнее абсолютное значение счётчика событий.
+  - Как читать: монотонно растёт, полезно для быстрой sanity-проверки «система вообще работает».
+- **Total errors (latest)**: последнее абсолютное значение счётчика ошибок.
+  - Как читать: если растёт быстрее обычного — нужно открыть логи и сверить с worker publish/influx.
+- **Device points/sec**: среднее количество записей `device_metrics` за окно.
+  - Как читать: показывает фактическую телеметрию от устройств в Influx.
+- **Active devices (last 15m)**: число устройств, которые писали данные за последние 15 минут.
+  - Как читать: если ниже ожидаемого количества устройств в сценарии — часть устройств «молчит».
+
+#### 2) Sequids Device Telemetry
+- **Device values (virtual + real)**: временные ряды `value` по выбранным `device_id`.
+  - Как читать: основная панель качества сигнала; ищем шум, дрейф, выбросы, обрывы.
+- **Messages per window by device**: количество сообщений по устройствам в каждом интервале агрегации Grafana.
+  - Как читать: просадки до 0 указывают на dropout/остановку run/проблемы публикации.
+- **Last values by device/topic/source**: последняя точка по комбинации `device_id/topic/source`.
+  - Как читать: быстрый срез «что сейчас последнее пришло» без открытия таймсерий.
+
+#### 3) Sequids Runs & Throughput
+- **Points per window by run**: количество точек телеметрии по каждому `run_id` за окно.
+  - Как читать: сравнение нагрузки/продуктивности экспериментов между собой.
+- **Latest samples by run/device**: последние значения по run и устройствам.
+  - Как читать: проверка, что конкретный run ещё жив и какие устройства в нём активны.
+
+### Важные заметки
+- Для корректной визуализации `Sequids Runs & Throughput` в Influx теперь пишется tag `run_id` в measurement `device_metrics`.
+- Если дашборды не появились, перезапусти Grafana сервис:
+  ```bash
+  docker compose restart grafana
+  ```
+- После ручного редактирования JSON в репозитории Grafana подхватит изменения автоматически (интервал обновления provisioning: 30с).
+
+## Что ещё нужно для production-ready прототипа
+1. TLS/mTLS и authN/authZ для gRPC.
+2. Персистентное хранилище run/log state (сейчас in-memory для runtime/logs).
+3. Стриминг логов и телеметрии (server-streaming) вместо только polling.
+4. Ретраи/таймауты/circuit breaker для межсервисных вызовов.
+5. Явная schema validation DSL (JSONSchema/OpenAPI style).
+6. Нагрузочные и chaos-тесты на multi-worker режим.
+7. Набор Grafana dashboard/alerts «из коробки».
 
 ## Проверка
 ```bash
 go test ./...
-go build ./cmd/central ./cmd/worker
+go build ./cmd/central ./cmd/worker ./cmd/sequidsctl
 ```
