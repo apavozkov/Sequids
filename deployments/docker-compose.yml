@@ -29,6 +29,9 @@ services:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
     depends_on: [influxdb]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/etc/grafana/dashboards
@@ -41,8 +44,8 @@ services:
       - /bin/sh
       - -lc
       - |
-        apt-get update && apt-get install -y --no-install-recommends gcc libsqlite3-dev && \
-        /usr/local/go/bin/go run ./cmd/central serve \
+        apt-get update && apt-get install -y --no-install-recommends libsqlite3-0 && \
+        /app/bin/central serve \
           -grpc-addr :50051 \
           -metrics-addr :8080 \
           -db /app/sequids.db \
@@ -60,11 +63,10 @@ services:
       - -lc
       - |
         apt-get update && apt-get install -y --no-install-recommends mosquitto-clients && \
-        /usr/local/go/bin/go run ./cmd/worker \
-          -grpc-addr worker:50052 \
-          -advertise-addr worker:50052 \
+        /app/bin/worker \
           -id worker-1
-          -grpc-addr worker:50052 \
+          -grpc-addr :50052 \
+          -advertise-addr worker:50052 \
           -metrics-addr :8090 \
           -central-grpc central:50051 \
           -mqtt-host mosquitto -mqtt-port 1883 \
@@ -75,8 +77,8 @@ services:
     depends_on: [central, mosquitto, influxdb]
     ports: ["8090:8090", "50052:50052"]
     restart: unless-stopped
-    
-  worker2:
+
+worker2:
     image: golang:1.25
     working_dir: /app
     volumes: ["../:/app"]
@@ -85,7 +87,7 @@ services:
       - -lc
       - |
         apt-get update && apt-get install -y --no-install-recommends mosquitto-clients && \
-        /usr/local/go/bin/go run ./cmd/worker \
+        /app/bin/worker \
           -id worker-2
           -grpc-addr worker:50053 \
           -advertise-addr worker:50053 \

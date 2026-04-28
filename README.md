@@ -59,8 +59,9 @@ go run ./cmd/sequidsctl stop -grpc 127.0.0.1:50051 -run-id <RUN_ID>
 1. Worker теперь регистрируется в central с retry (раньше при разовом fail завершался).
 2. В compose для worker добавлена установка `mosquitto-clients` перед запуском (нужен `mosquitto_pub`).
 
-Поэтому стандартный запуск теперь такой:
+Поэтому стандартный запуск теперь такой (сначала собери локальные бинарники):
 ```bash
+make build
 cd deployments
 docker compose up -d
 ```
@@ -80,7 +81,7 @@ docker compose logs central --tail=100
 docker compose logs worker --tail=100
 ```
 
-В этой версии compose central автоматически устанавливает `gcc` + `libsqlite3-dev` (нужно для cgo SQLite), а worker устанавливает `mosquitto-clients` перед стартом. Для запуска используется явный путь `/usr/local/go/bin/go`, чтобы избежать ошибок `go: command not found` внутри shell-обёртки контейнера.
+В этой версии compose central и worker запускают уже собранные локальные бинарники (`/app/bin/central`, `/app/bin/worker`), поэтому внутри контейнеров больше не нужен `go run` и не требуется доступ к `proxy.golang.org` во время старта. Worker при этом ставит `mosquitto-clients` перед стартом.
 Если воркер внутри Docker запущен с дефолтным `-central-grpc localhost:50051`, он автоматически переключается на `central:50051`, чтобы не пытаться подключаться к `::1` внутри собственного контейнера.
 
 

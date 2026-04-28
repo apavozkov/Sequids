@@ -4,7 +4,10 @@ test:
 	go test ./...
 
 build:
-	go build ./cmd/central ./cmd/worker ./cmd/sequidsctl
+	mkdir -p bin
+	go build -o ./bin/central ./cmd/central
+	go build -o ./bin/worker ./cmd/worker
+	go build -o ./bin/sequidsctl ./cmd/sequidsctl
 
 proto:
 	protoc --go_out=. --go-grpc_out=. api/proto/orchestrator.proto
