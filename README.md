@@ -124,6 +124,8 @@ go run ./cmd/sequidsctl start -grpc 127.0.0.1:50051 -scenario-file ./examples/gr
 
 ## DSL (расширено)
 
+Подробная документация по DSL: `docs/DSL_GUIDE.md`.
+
 Пример:
 ```yaml
 name: greenhouse-hybrid-v2
