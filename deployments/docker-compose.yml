@@ -48,7 +48,7 @@ services:
           -db /app/sequids.db \
           -formulas /app/configs/formulas/formulas.yaml \
           -anomalies /app/configs/anomalies/anomalies.yaml
-    ports: ["18080:8080", "15051:50051"]
+    ports: ["8080:8080", "50051:50051"]
     restart: unless-stopped
 
   worker1:
@@ -72,7 +72,7 @@ services:
           -influx-org sequids \
           -influx-bucket metrics
     depends_on: [central, mosquitto, influxdb]
-    ports: ["18090:8090", "15052:50052"]
+    ports: ["8090:8090", "50052:50052"]
     restart: unless-stopped
 
   worker2:
@@ -96,5 +96,5 @@ services:
           -influx-org sequids \
           -influx-bucket metrics
     depends_on: [central, mosquitto, influxdb]
-    ports: ["18091:8091", "15053:50053"]
+    ports: ["8091:8091", "50053:50053"]
     restart: unless-stopped
