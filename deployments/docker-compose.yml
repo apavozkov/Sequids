@@ -63,7 +63,7 @@ services:
         /app/bin/worker \
           -id worker-1 \
           -grpc-addr :50052 \
-          -advertise-addr worker:50052 \
+          -advertise-addr worker1:50052 \
           -metrics-addr :8090 \
           -central-grpc central:50051 \
           -mqtt-host mosquitto -mqtt-port 1883 \
