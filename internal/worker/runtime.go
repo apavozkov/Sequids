@@ -26,6 +26,7 @@ type DataPoint struct {
 	Value    float64
 	Source   string // virtual|real
 	TS       time.Time
+	Payload  []byte
 }
 
 type runState struct {
@@ -182,15 +183,10 @@ func (r *Runtime) runDevice(ctx context.Context, rng *rand.Rand, runID string, d
 			}
 		}
 
+		now = time.Now().UTC()
 		msg := fmt.Sprintf(`{"run_id":"%s","device_id":"%s","value":%f,"ts":"%s"}`,
-			runID, d.ID, value, time.Now().UTC().Format(time.RFC3339Nano))
-		if err := r.pub.Publish(ctx, d.Topic, []byte(msg)); err != nil {
-			r.metrics.IncErrors()
-			r.logger.Error("publish failed", "device", d.ID, "err", err)
-			continue
-		}
-		r.metrics.IncEvents()
-		r.enqueue(DataPoint{RunID: runID, DeviceID: d.ID, Topic: d.Topic, Value: value, Source: "virtual", TS: time.Now().UTC()})
+			runID, d.ID, value, now.Format(time.RFC3339Nano))
+		r.enqueue(DataPoint{RunID: runID, DeviceID: d.ID, Topic: d.Topic, Value: value, Source: "virtual", TS: now, Payload: []byte(msg)})
 	}
 }
 
@@ -225,6 +221,18 @@ func (r *Runtime) listenerLoop(ctx context.Context) {
 			if p.Source == "real" && !r.isMaster.Load() {
 				continue
 			}
+			if p.Source == "virtual" {
+				payload := p.Payload
+				if len(payload) == 0 {
+					payload = []byte(fmt.Sprintf(`{"run_id":"%s","device_id":"%s","value":%f,"ts":"%s"}`, p.RunID, p.DeviceID, p.Value, p.TS.Format(time.RFC3339Nano)))
+				}
+				if err := r.pub.Publish(ctx, p.Topic, payload); err != nil {
+					r.metrics.IncErrors()
+					r.logger.Error("publish failed", "device", p.DeviceID, "err", err)
+					continue
+				}
+			}
+			r.metrics.IncEvents()
 			if err := r.writeInflux(p); err != nil {
 				r.metrics.IncErrors()
 				r.logger.Error("influx write failed", "err", err)

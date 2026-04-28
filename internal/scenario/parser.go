@@ -13,6 +13,11 @@ func ParseYAMLLike(r io.Reader) (Scenario, error) {
 	s := Scenario{}
 	var currentDevice *Device
 	var currentInline *Anomaly
+	var currentBridge *Bridge
+	var currentFlow *Flow
+	var currentCondition *Condition
+	var currentAction *Action
+	section := ""
 
 	flushInline := func() {
 		if currentDevice != nil && currentInline != nil {
@@ -27,6 +32,32 @@ func ParseYAMLLike(r io.Reader) (Scenario, error) {
 			currentDevice = nil
 		}
 	}
+	flushCondition := func() {
+		if currentFlow != nil && currentCondition != nil {
+			currentFlow.Conditions = append(currentFlow.Conditions, *currentCondition)
+			currentCondition = nil
+		}
+	}
+	flushAction := func() {
+		if currentFlow != nil && currentAction != nil {
+			currentFlow.Actions = append(currentFlow.Actions, *currentAction)
+			currentAction = nil
+		}
+	}
+	flushFlow := func() {
+		flushCondition()
+		flushAction()
+		if currentFlow != nil {
+			s.Flows = append(s.Flows, *currentFlow)
+			currentFlow = nil
+		}
+	}
+	flushBridge := func() {
+		if currentBridge != nil {
+			s.Bridges = append(s.Bridges, *currentBridge)
+			currentBridge = nil
+		}
+	}
 
 	scanner := bufio.NewScanner(r)
 	for lineNo := 1; scanner.Scan(); lineNo++ {
@@ -38,10 +69,36 @@ func ParseYAMLLike(r io.Reader) (Scenario, error) {
 		case strings.HasPrefix(line, "name:"):
 			s.Name = strings.TrimSpace(strings.TrimPrefix(line, "name:"))
 		case line == "devices:" || line == "anomalies:":
+			section = line
+			continue
+		case line == "bridges:":
+			flushDevice()
+			flushFlow()
+			section = "bridges:"
+			continue
+		case line == "flows:":
+			flushDevice()
+			flushBridge()
+			section = "flows:"
+			continue
+		case line == "conditions:":
+			section = "conditions:"
+			continue
+		case line == "actions:":
+			section = "actions:"
 			continue
 		case strings.HasPrefix(line, "- id:"):
-			flushDevice()
-			currentDevice = &Device{ID: strings.TrimSpace(strings.TrimPrefix(line, "- id:"))}
+			switch section {
+			case "devices:", "anomalies:":
+				flushDevice()
+				currentDevice = &Device{ID: strings.TrimSpace(strings.TrimPrefix(line, "- id:"))}
+			case "bridges:":
+				flushBridge()
+				currentBridge = &Bridge{ID: strings.TrimSpace(strings.TrimPrefix(line, "- id:"))}
+			case "flows:":
+				flushFlow()
+				currentFlow = &Flow{ID: strings.TrimSpace(strings.TrimPrefix(line, "- id:"))}
+			}
 		case strings.HasPrefix(line, "type:") && currentDevice != nil:
 			currentDevice.Type = strings.TrimSpace(strings.TrimPrefix(line, "type:"))
 		case strings.HasPrefix(line, "topic:") && currentDevice != nil:
@@ -128,12 +185,76 @@ func ParseYAMLLike(r io.Reader) (Scenario, error) {
 				return Scenario{}, fmt.Errorf("line %d: bad hold_sec: %w", lineNo, err)
 			}
 			currentInline.HoldSec = v
+		case strings.HasPrefix(line, "protocol:") && currentBridge != nil:
+			currentBridge.Protocol = strings.TrimSpace(strings.TrimPrefix(line, "protocol:"))
+		case strings.HasPrefix(line, "mode:") && currentBridge != nil:
+			currentBridge.Mode = strings.TrimSpace(strings.TrimPrefix(line, "mode:"))
+		case strings.HasPrefix(line, "ingress_topic:") && currentBridge != nil:
+			currentBridge.IngressTopic = strings.TrimSpace(strings.TrimPrefix(line, "ingress_topic:"))
+		case strings.HasPrefix(line, "egress_topic:") && currentBridge != nil:
+			currentBridge.EgressTopic = strings.TrimSpace(strings.TrimPrefix(line, "egress_topic:"))
+		case strings.HasPrefix(line, "from:") && currentFlow != nil:
+			currentFlow.From = strings.TrimSpace(strings.TrimPrefix(line, "from:"))
+		case strings.HasPrefix(line, "to:") && currentFlow != nil:
+			currentFlow.To = strings.TrimSpace(strings.TrimPrefix(line, "to:"))
+		case strings.HasPrefix(line, "via:") && currentFlow != nil:
+			currentFlow.Via = strings.TrimSpace(strings.TrimPrefix(line, "via:"))
+		case strings.HasPrefix(line, "bridge_ref:") && currentFlow != nil:
+			currentFlow.BridgeRef = strings.TrimSpace(strings.TrimPrefix(line, "bridge_ref:"))
+		case strings.HasPrefix(line, "- metric:") && currentFlow != nil:
+			flushCondition()
+			currentCondition = &Condition{Metric: strings.TrimSpace(strings.TrimPrefix(line, "- metric:"))}
+		case strings.HasPrefix(line, "metric:") && currentCondition != nil:
+			currentCondition.Metric = strings.TrimSpace(strings.TrimPrefix(line, "metric:"))
+		case strings.HasPrefix(line, "op:") && currentCondition != nil:
+			currentCondition.Op = strings.TrimSpace(strings.TrimPrefix(line, "op:"))
+		case strings.HasPrefix(line, "threshold:") && currentCondition != nil:
+			v, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "threshold:")), 64)
+			if err != nil {
+				return Scenario{}, fmt.Errorf("line %d: bad threshold: %w", lineNo, err)
+			}
+			currentCondition.Threshold = &v
+		case strings.HasPrefix(line, "min:") && currentCondition != nil:
+			v, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "min:")), 64)
+			if err != nil {
+				return Scenario{}, fmt.Errorf("line %d: bad min: %w", lineNo, err)
+			}
+			currentCondition.Min = &v
+		case strings.HasPrefix(line, "max:") && currentCondition != nil:
+			v, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "max:")), 64)
+			if err != nil {
+				return Scenario{}, fmt.Errorf("line %d: bad max: %w", lineNo, err)
+			}
+			currentCondition.Max = &v
+		case strings.HasPrefix(line, "sustain_sec:") && currentCondition != nil:
+			v, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "sustain_sec:")), 64)
+			if err != nil {
+				return Scenario{}, fmt.Errorf("line %d: bad sustain_sec: %w", lineNo, err)
+			}
+			currentCondition.SustainSec = v
+		case strings.HasPrefix(line, "- command:") && currentFlow != nil:
+			flushAction()
+			currentAction = &Action{Command: strings.TrimSpace(strings.TrimPrefix(line, "- command:"))}
+		case strings.HasPrefix(line, "command:") && currentAction != nil:
+			currentAction.Command = strings.TrimSpace(strings.TrimPrefix(line, "command:"))
+		case strings.HasPrefix(line, "target:") && currentAction != nil:
+			currentAction.Target = strings.TrimSpace(strings.TrimPrefix(line, "target:"))
+		case strings.HasPrefix(line, "payload_field:") && currentAction != nil:
+			currentAction.PayloadField = strings.TrimSpace(strings.TrimPrefix(line, "payload_field:"))
+		case strings.HasPrefix(line, "cooldown_sec:") && currentAction != nil:
+			v, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "cooldown_sec:")), 64)
+			if err != nil {
+				return Scenario{}, fmt.Errorf("line %d: bad cooldown_sec: %w", lineNo, err)
+			}
+			currentAction.CooldownSec = v
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return Scenario{}, err
 	}
 	flushDevice()
+	flushBridge()
+	flushFlow()
 	if s.Name == "" {
 		return Scenario{}, fmt.Errorf("scenario name is required")
 	}

@@ -3,6 +3,8 @@ package scenario
 type Scenario struct {
 	Name    string
 	Devices []Device
+	Bridges []Bridge
+	Flows   []Flow
 }
 
 type Device struct {
@@ -30,4 +32,38 @@ type Anomaly struct {
 	DriftPerSec float64
 	DurationSec float64
 	HoldSec     float64
+}
+
+type Bridge struct {
+	ID           string
+	Protocol     string
+	Mode         string
+	IngressTopic string
+	EgressTopic  string
+}
+
+type Flow struct {
+	ID         string
+	From       string
+	To         string
+	Via        string
+	BridgeRef  string
+	Conditions []Condition
+	Actions    []Action
+}
+
+type Condition struct {
+	Metric     string
+	Op         string
+	Threshold  *float64
+	Min        *float64
+	Max        *float64
+	SustainSec float64
+}
+
+type Action struct {
+	Target       string
+	Command      string
+	PayloadField string
+	CooldownSec  float64
 }
