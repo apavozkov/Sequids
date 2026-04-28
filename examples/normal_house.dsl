@@ -1,9 +1,5 @@
 name: normal-house-temp-ac
 
-# HVAC status convention used by runtime/Grafana:
-# state_code: 0 = OFF, 1 = ON
-# state_text: "off" / "on"
-
 devices:
   - id: temp-sensor-1
     type: temperature
@@ -15,9 +11,7 @@ devices:
 
   - id: air-conditioner-1
     type: hvac
-    # Device publishes current AC status here.
     topic: house/livingroom/ac/status
-    # Consumer input topic (temperature stream).
     from: house/livingroom/temperature
 
 flows:
