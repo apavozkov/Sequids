@@ -107,6 +107,7 @@ func (s *Server) RunExperiment(_ context.Context, req *orchestratorv1.RunExperim
 	if err != nil {
 		return nil, err
 	}
+	applyFlowControls(&scn)
 	runID := newID("run")
 	workers, err := s.dispatchToWorkers(context.Background(), runID, req.Seed, scn.Devices)
 	if err != nil {
@@ -118,6 +119,56 @@ func (s *Server) RunExperiment(_ context.Context, req *orchestratorv1.RunExperim
 	s.mu.Unlock()
 	s.metrics.IncEvents()
 	return &orchestratorv1.RunExperimentResponse{RunId: runID}, nil
+}
+
+func applyFlowControls(scn *scenario.Scenario) {
+	if scn == nil {
+		return
+	}
+	byID := map[string]*scenario.Device{}
+	for i := range scn.Devices {
+		byID[scn.Devices[i].ID] = &scn.Devices[i]
+	}
+	type ctrl struct {
+		onGT   float64
+		offLT  float64
+		hasOn  bool
+		hasOff bool
+	}
+	ctrlByDevice := map[string]ctrl{}
+	for _, f := range scn.Flows {
+		d := byID[f.Device]
+		if d == nil || d.From == "" || len(f.Conditions) == 0 {
+			continue
+		}
+		cx := ctrlByDevice[f.Device]
+		for _, c := range f.Conditions {
+			if c.Threshold == nil {
+				continue
+			}
+			for _, a := range f.Actions {
+				if a.Command == "power_on" && c.Op == "gt" {
+					cx.onGT = *c.Threshold
+					cx.hasOn = true
+				}
+				if a.Command == "power_off" && c.Op == "lt" {
+					cx.offLT = *c.Threshold
+					cx.hasOff = true
+				}
+			}
+		}
+		ctrlByDevice[f.Device] = cx
+	}
+	for id, cx := range ctrlByDevice {
+		d := byID[id]
+		if d == nil || (!cx.hasOn && !cx.hasOff) {
+			continue
+		}
+		d.Formula = fmt.Sprintf("control:from=%s;on_gt=%g;off_lt=%g", d.From, cx.onGT, cx.offLT)
+		if d.FrequencyHz <= 0 {
+			d.FrequencyHz = 1
+		}
+	}
 }
 
 func (s *Server) StopExperiment(_ context.Context, req *orchestratorv1.StopExperimentRequest) (*orchestratorv1.StopExperimentResponse, error) {

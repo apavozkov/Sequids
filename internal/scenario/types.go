@@ -11,6 +11,7 @@ type Device struct {
 	ID          string
 	Type        string
 	Topic       string
+	From        string
 	FrequencyHz float64
 	FormulaRef  string
 	Formula     string
@@ -44,10 +45,7 @@ type Bridge struct {
 
 type Flow struct {
 	ID         string
-	From       string
-	To         string
-	Via        string
-	BridgeRef  string
+	Device     string
 	Conditions []Condition
 	Actions    []Action
 }
