@@ -4,22 +4,46 @@ package sequids.orchestrator.v1;
 
 option go_package = "sequids/api/gen/orchestratorv1;orchestratorv1";
 
+message AnomalyConfig {
+  string kind = 1;
+  double probability = 2;
+  double amplitude = 3;
+  double drift_per_sec = 4;
+  double duration_sec = 5;
+  double hold_sec = 6;
+}
+
 message DeviceConfig {
   string id = 1;
   string type = 2;
   string topic = 3;
   double publish_frequency_hz = 4;
   string formula = 5;
+  repeated AnomalyConfig anomalies = 6;
+  double gain = 7;
+  double offset = 8;
+  double clamp_min = 9;
+  double clamp_max = 10;
+  double startup_delay_sec = 11;
+  double jitter_ratio = 12;
 }
 
 message RegisterWorkerRequest {
   string worker_id = 1;
   string address = 2;
-  repeated string capabilities = 3;
 }
 
 message RegisterWorkerResponse {
   bool accepted = 1;
+}
+
+message HeartbeatRequest {
+  string worker_id = 1;
+  int32 virtual_load = 2;
+}
+
+message HeartbeatResponse {
+  bool ok = 1;
 }
 
 message RunExperimentRequest {
@@ -31,31 +55,99 @@ message RunExperimentResponse {
   string run_id = 1;
 }
 
+message StopExperimentRequest {
+  string run_id = 1;
+}
+
+message StopExperimentResponse {
+  bool stopped = 1;
+}
+
 message PushScenarioRequest {
   string name = 1;
-  string yaml = 2;
+  string dsl = 2;
 }
 
 message PushScenarioResponse {
   string scenario_id = 1;
 }
 
+message GetSystemStatusRequest {}
+
+message WorkerStatus {
+  string worker_id = 1;
+  string address = 2;
+  bool is_master = 3;
+  int32 virtual_load = 4;
+  int32 assigned_runs = 5;
+  int64 last_seen_unix = 6;
+  int32 active_runs = 7;
+  int32 active_devices = 8;
+}
+
+message RunStatus {
+  string run_id = 1;
+  string scenario_id = 2;
+  int64 started_at_unix = 3;
+  bool active = 4;
+}
+
+message GetSystemStatusResponse {
+  repeated WorkerStatus workers = 1;
+  repeated RunStatus runs = 2;
+}
+
+message LogEntry {
+  int64 ts_unix = 1;
+  string level = 2;
+  string message = 3;
+}
+
+message GetLogsRequest {
+  int32 limit = 1;
+}
+
+message GetLogsResponse {
+  repeated LogEntry entries = 1;
+}
+
 service OrchestratorService {
   rpc RegisterWorker(RegisterWorkerRequest) returns (RegisterWorkerResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
   rpc RunExperiment(RunExperimentRequest) returns (RunExperimentResponse);
+  rpc StopExperiment(StopExperimentRequest) returns (StopExperimentResponse);
   rpc PushScenario(PushScenarioRequest) returns (PushScenarioResponse);
+  rpc GetSystemStatus(GetSystemStatusRequest) returns (GetSystemStatusResponse);
+  rpc GetLogs(GetLogsRequest) returns (GetLogsResponse);
 }
 
 service WorkerControlService {
+  rpc AssignRole(AssignRoleRequest) returns (AssignRoleResponse);
   rpc StartWorkload(StartWorkloadRequest) returns (StartWorkloadResponse);
+  rpc StopWorkload(StopWorkloadRequest) returns (StopWorkloadResponse);
+  rpc GetWorkerStatus(GetWorkerStatusRequest) returns (GetWorkerStatusResponse);
 }
+
+message AssignRoleRequest { bool is_master = 1; }
+message AssignRoleResponse { bool ok = 1; }
 
 message StartWorkloadRequest {
   string run_id = 1;
   int64 seed = 2;
   repeated DeviceConfig devices = 3;
+  bool is_master = 4;
 }
 
-message StartWorkloadResponse {
-  bool started = 1;
+message StartWorkloadResponse { bool started = 1; }
+
+message StopWorkloadRequest { string run_id = 1; }
+
+message StopWorkloadResponse { bool stopped = 1; }
+
+message GetWorkerStatusRequest {}
+
+message GetWorkerStatusResponse {
+  int32 virtual_load = 1;
+  int32 active_runs = 2;
+  int32 active_devices = 3;
 }
