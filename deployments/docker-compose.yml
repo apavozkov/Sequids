@@ -48,7 +48,7 @@ services:
           -db /app/sequids.db \
           -formulas /app/configs/formulas/formulas.yaml \
           -anomalies /app/configs/anomalies/anomalies.yaml
-    ports: ["8080:8080", "50051:50051"]
+    ports: ["${CENTRAL_METRICS_PORT:-8080}:8080", "${CENTRAL_GRPC_PORT:-50051}:50051"]
     restart: unless-stopped
 
   worker1:

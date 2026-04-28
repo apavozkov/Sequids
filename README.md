@@ -73,6 +73,26 @@ docker compose logs worker --tail=100
 ```
 
 
+Если `docker compose up -d` падает с ошибкой `failed to bind host port ... 0.0.0.0:8080 ... address already in use`, значит порт `8080` на хосте уже занят.
+
+Используй другой host-порт для central через переменную окружения:
+```bash
+cd deployments
+CENTRAL_METRICS_PORT=18080 docker compose up -d
+```
+
+Если также занят `50051`, можно переопределить и его:
+```bash
+cd deployments
+CENTRAL_METRICS_PORT=18080 CENTRAL_GRPC_PORT=15051 docker compose up -d
+```
+
+После этого CLI запускай с новым gRPC-портом, например:
+```bash
+go run ./cmd/sequidsctl status -grpc 127.0.0.1:15051
+```
+
+
 Если после `docker compose up -d` CLI всё ещё даёт `connection refused` на `127.0.0.1:50051`, проверь:
 ```bash
 cd deployments
