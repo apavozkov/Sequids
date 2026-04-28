@@ -380,3 +380,232 @@ devices:
     - `drift_per_sec`: float
     - `duration_sec`: float
     - `hold_sec`: float
+
+---
+
+## 9) Межустройственное взаимодействие через адаптер и in-memory шину
+
+В текущей архитектуре Sequids **виртуальные устройства не общаются с MQTT-брокером напрямую**. Поток данных всегда такой:
+
+1. Воркеры виртуальных устройств публикуют телеметрию **сразу в in-memory data bus**.
+2. Адаптеры (MQTT/Zigbee/Bluetooth) читают события из шины и передают их во внешние протоколы/брокеры.
+3. Входящие внешние события адаптеры пишут обратно в шину.
+4. Из шины события маршрутизируются к получателям (виртуальным и/или реальным устройствам).
+
+Это важно для DSL: в сценарии вы описываете не «прямую отправку в брокер», а правила маршрутизации и реакций внутри шины.
+
+### 9.1 Новые сущности DSL
+
+Для описания связи между устройствами добавляются блоки:
+
+- `flows` — правила передачи данных между источником и приёмником через шину.
+- `conditions` — предикаты срабатывания без конструкции `if/else`.
+- `actions` — атомарные действия над целевым устройством/топиком.
+- `bridges` — имитация протокольных каналов (MQTT/Zigbee/Bluetooth) поверх шины.
+
+Минимальный шаблон:
+
+```yaml
+name: device-coupling-demo
+devices:
+  - id: temp-virt-1
+    type: temperature
+    formula_ref: temp_daily_sine
+  - id: ac-virt-1
+    type: hvac
+
+flows:
+  - id: temp_to_ac
+    from: temp-virt-1
+    to: ac-virt-1
+    via: adapter.bus
+    conditions:
+      - metric: value
+        op: gt
+        threshold: 26
+    actions:
+      - target: ac-virt-1
+        command: power_on
+```
+
+### 9.2 Сценарий «датчик температуры → кондиционер» (без `if/else`)
+
+Ниже эквивалент вашей задачи в декларативном стиле:
+
+```yaml
+name: temp-ac-threshold
+devices:
+  - id: temp-virt-1
+    type: temperature
+    formula_ref: temp_daily_sine
+    frequency_hz: 1
+
+  - id: ac-virt-1
+    type: hvac
+
+bridges:
+  - id: mqtt_bridge_main
+    protocol: mqtt
+    mode: bus_gateway
+    ingress_topic: iot/virt/temp
+    egress_topic: iot/virt/ac/cmd
+
+flows:
+  - id: sensor_to_broker
+    from: temp-virt-1
+    to: mqtt_bridge_main
+    via: adapter.bus
+    actions:
+      - command: publish
+        payload_field: value
+
+  - id: broker_to_ac
+    from: mqtt_bridge_main
+    to: ac-virt-1
+    via: adapter.bus
+    conditions:
+      - metric: value
+        op: gt
+        threshold: 26
+    actions:
+      - target: ac-virt-1
+        command: power_on
+```
+
+Что происходит:
+
+- Температурный сенсор генерирует значение.
+- Значение попадает в адаптер и шину.
+- MQTT bridge читает из шины и публикует во внешний брокер.
+- Ответный поток из bridge снова попадает в шину.
+- `flow` с условием `op: gt` включает кондиционер.
+- Если условие не выполнено, действий нет (это **не** `if/else`, а модель «condition + action»).
+
+### 9.3 Базовые сценарии, которые стоит поддерживать
+
+#### A) Пороговая автоматика (threshold trigger)
+
+Используется для HVAC, сигнализаций, реле:
+
+```yaml
+conditions:
+  - metric: value
+    op: gte
+    threshold: 70
+actions:
+  - command: alarm_on
+```
+
+#### B) Оконное условие (range/window)
+
+Действие только при попадании в диапазон:
+
+```yaml
+conditions:
+  - metric: value
+    op: between
+    min: 18
+    max: 24
+actions:
+  - command: set_mode_comfort
+```
+
+#### C) Антидребезг / подавление флаппинга (hysteresis)
+
+Чтобы устройство не переключалось слишком часто около порога:
+
+```yaml
+conditions:
+  - metric: value
+    op: gt
+    threshold: 26
+    sustain_sec: 10
+actions:
+  - command: power_on
+```
+
+#### D) Репликация состояния 1→N (fan-out)
+
+Один источник обновляет несколько получателей:
+
+```yaml
+flows:
+  - id: temp_fanout
+    from: temp-virt-1
+    via: adapter.bus
+    to_many: [ac-virt-1, vent-virt-1, dashboard-proxy]
+    actions:
+      - command: forward_value
+```
+
+#### E) Командная связка «датчик → исполнитель» с cooldown
+
+Защита от повторной команды чаще заданного окна:
+
+```yaml
+conditions:
+  - metric: value
+    op: gt
+    threshold: 30
+actions:
+  - command: power_on
+    cooldown_sec: 60
+```
+
+### 9.4 Имитация «прямого» общения устройств по Zigbee/Bluetooth
+
+Даже если сценарий логически похож на прямой device-to-device канал, в Sequids он моделируется через шину:
+
+```yaml
+bridges:
+  - id: zigbee_bridge_lab
+    protocol: zigbee
+    mode: peer_emulation
+
+  - id: bt_bridge_lab
+    protocol: bluetooth
+    mode: peer_emulation
+
+flows:
+  - id: zigbee_peer_like
+    from: motion-virt-1
+    to: lamp-virt-1
+    via: adapter.bus
+    bridge_ref: zigbee_bridge_lab
+    conditions:
+      - metric: value
+        op: eq
+        threshold: 1
+    actions:
+      - command: turn_on
+
+  - id: bt_peer_like
+    from: wearable-virt-1
+    to: lock-virt-1
+    via: adapter.bus
+    bridge_ref: bt_bridge_lab
+    conditions:
+      - metric: rssi
+        op: gte
+        threshold: -65
+    actions:
+      - command: unlock
+```
+
+Смысл `peer_emulation`:
+
+- поведение похоже на «напрямую по Zigbee/BLE»;
+- фактически транспорт и оркестрация остаются внутри adapter + in-memory bus;
+- это даёт единый контроль, трассировку и воспроизводимость сценариев.
+
+### 9.5 Рекомендуемые операторы условий
+
+Без `if/else` достаточно стандартного набора операторов:
+
+- `gt`, `gte`, `lt`, `lte`, `eq`, `neq`
+- `between`
+- `changed` (реакция на изменение)
+- `rate_gt` (скорость роста выше порога)
+- `sustain_sec` (условие истинно непрерывно N секунд)
+
+Так DSL остаётся декларативным: «когда условие истинно — выполняй action», иначе ничего не делай.
