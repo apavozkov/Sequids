@@ -609,3 +609,65 @@ flows:
 - `sustain_sec` (условие истинно непрерывно N секунд)
 
 Так DSL остаётся декларативным: «когда условие истинно — выполняй action», иначе ничего не делай.
+
+### 9.6 Упрощённая модель обмена через topic + from
+
+Для базовых сценариев используется упрощённая схема:
+
+- У каждого устройства есть `topic` в шине воркера.
+- Адаптер воркера автоматически зеркалирует топики виртуальных устройств в MQTT брокер.
+- Из MQTT адаптер возвращает в шину данные реальных устройств и других воркеров.
+
+Роли устройств:
+
+- Датчик обычно имеет только `topic` (куда публикует значения).
+- Потребитель (например, кондиционер) имеет:
+  - `topic` — куда публикует свой статус/состояние;
+  - `from` — из какого топика в шине брать входные значения для обработки.
+
+Упрощённый `flows`:
+
+- `id` — идентификатор правила;
+- `device` — ID устройства-потребителя из `devices`;
+- `conditions` — условия над входным значением, полученным из `device.from`;
+- `actions` — действия при истинных условиях.
+
+Поля `from/to/via/bridge_ref` в `flows` больше не требуются для обычных сценариев.
+
+Пример:
+
+```yaml
+name: normal-house-temp-ac
+devices:
+  - id: temp-sensor-1
+    type: temperature
+    topic: house/livingroom/temperature
+    frequency_hz: 1
+    formula_ref: temp_daily_sine
+
+  - id: air-conditioner-1
+    type: hvac
+    topic: house/livingroom/ac/status
+    from: house/livingroom/temperature
+
+flows:
+  - id: ac_power_on_when_hot
+    device: air-conditioner-1
+    conditions:
+      - metric: value
+        op: gt
+        threshold: 26
+    actions:
+      - target: air-conditioner-1
+        command: power_on
+
+  - id: ac_power_off_when_cool
+    device: air-conditioner-1
+    conditions:
+      - metric: value
+        op: lt
+        threshold: 24
+    actions:
+      - target: air-conditioner-1
+        command: power_off
+```
