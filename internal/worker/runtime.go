@@ -20,13 +20,14 @@ import (
 )
 
 type DataPoint struct {
-	RunID    string
-	DeviceID string
-	Topic    string
-	Value    float64
-	Source   string // virtual|real
-	TS       time.Time
-	Payload  []byte
+	RunID      string
+	DeviceID   string
+	DeviceType string
+	Topic      string
+	Value      float64
+	Source     string // virtual|real
+	TS         time.Time
+	Payload    []byte
 }
 
 type runState struct {
@@ -184,9 +185,9 @@ func (r *Runtime) runDevice(ctx context.Context, rng *rand.Rand, runID string, d
 		}
 
 		now = time.Now().UTC()
-		msg := fmt.Sprintf(`{"run_id":"%s","device_id":"%s","value":%f,"ts":"%s"}`,
-			runID, d.ID, value, now.Format(time.RFC3339Nano))
-		r.enqueue(DataPoint{RunID: runID, DeviceID: d.ID, Topic: d.Topic, Value: value, Source: "virtual", TS: now, Payload: []byte(msg)})
+		msg := fmt.Sprintf(`{"run_id":"%s","device_id":"%s","device_type":"%s","value":%f,"state_code":%d,"state_text":"%s","ts":"%s"}`,
+			runID, d.ID, d.Type, value, stateCode(d.Type, value), stateText(d.Type, value), now.Format(time.RFC3339Nano))
+		r.enqueue(DataPoint{RunID: runID, DeviceID: d.ID, DeviceType: d.Type, Topic: d.Topic, Value: value, Source: "virtual", TS: now, Payload: []byte(msg)})
 	}
 }
 
@@ -224,7 +225,7 @@ func (r *Runtime) listenerLoop(ctx context.Context) {
 			if p.Source == "virtual" {
 				payload := p.Payload
 				if len(payload) == 0 {
-					payload = []byte(fmt.Sprintf(`{"run_id":"%s","device_id":"%s","value":%f,"ts":"%s"}`, p.RunID, p.DeviceID, p.Value, p.TS.Format(time.RFC3339Nano)))
+					payload = []byte(fmt.Sprintf(`{"run_id":"%s","device_id":"%s","device_type":"%s","value":%f,"state_code":%d,"state_text":"%s","ts":"%s"}`, p.RunID, p.DeviceID, p.DeviceType, p.Value, stateCode(p.DeviceType, p.Value), stateText(p.DeviceType, p.Value), p.TS.Format(time.RFC3339Nano)))
 				}
 				if err := r.pub.Publish(ctx, p.Topic, payload); err != nil {
 					r.metrics.IncErrors()
@@ -241,12 +242,34 @@ func (r *Runtime) listenerLoop(ctx context.Context) {
 	}
 }
 
+func stateCode(deviceType string, value float64) int {
+	switch deviceType {
+	case "hvac", "ac", "air_conditioner":
+		if value > 0 {
+			return 1
+		}
+		return 0
+	default:
+		return 0
+	}
+}
+
+func stateText(deviceType string, value float64) string {
+	if stateCode(deviceType, value) == 1 {
+		return "on"
+	}
+	return "off"
+}
 func (r *Runtime) writeInflux(p DataPoint) error {
 	if r.influxURL == "" || r.influxToken == "" {
 		return nil
 	}
-	line := fmt.Sprintf("device_metrics,run_id=%s,device_id=%s,topic=%s,source=%s value=%f %d",
-		escapeTag(p.RunID), escapeTag(p.DeviceID), escapeTag(p.Topic), escapeTag(p.Source), p.Value, p.TS.UnixNano())
+	line := fmt.Sprintf("device_metrics,run_id=%s,device_id=%s,device_type=%s,topic=%s,source=%s value=%f %d",
+		escapeTag(p.RunID), escapeTag(p.DeviceID), escapeTag(p.DeviceType), escapeTag(p.Topic), escapeTag(p.Source), p.Value, p.TS.UnixNano())
+	if p.DeviceType == "hvac" || p.DeviceType == "ac" || p.DeviceType == "air_conditioner" {
+		line += "\n" + fmt.Sprintf("device_metrics,run_id=%s,device_id=%s,device_type=%s,topic=%s,source=%s state_code=%di %d",
+			escapeTag(p.RunID), escapeTag(p.DeviceID), escapeTag(p.DeviceType), escapeTag(p.Topic), escapeTag(p.Source), stateCode(p.DeviceType, p.Value), p.TS.UnixNano())
+	}
 	endpoint := fmt.Sprintf("%s/api/v2/write?org=%s&bucket=%s&precision=ns", strings.TrimRight(r.influxURL, "/"), r.org, r.bucket)
 	req, _ := http.NewRequest(http.MethodPost, endpoint, bytes.NewBufferString(line))
 	req.Header.Set("Authorization", "Token "+r.influxToken)

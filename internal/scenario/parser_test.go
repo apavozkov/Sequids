@@ -38,10 +38,7 @@ bridges:
     egress_topic: iot/out
 flows:
   - id: f1
-    from: temp-1
-    to: ac-1
-    via: adapter.bus
-    bridge_ref: b1
+    device: ac-1
     conditions:
       - metric: value
         op: gt
@@ -56,7 +53,7 @@ flows:
 	if len(s.Bridges) != 1 || s.Bridges[0].ID != "b1" {
 		t.Fatalf("expected 1 bridge b1, got %+v", s.Bridges)
 	}
-	if len(s.Flows) != 1 || s.Flows[0].ID != "f1" || len(s.Flows[0].Conditions) != 1 || len(s.Flows[0].Actions) != 1 {
+	if len(s.Flows) != 1 || s.Flows[0].ID != "f1" || s.Flows[0].Device != "ac-1" || len(s.Flows[0].Conditions) != 1 || len(s.Flows[0].Actions) != 1 {
 		t.Fatalf("unexpected flow parse result: %+v", s.Flows)
 	}
 }

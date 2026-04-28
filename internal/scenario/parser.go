@@ -103,6 +103,8 @@ func ParseYAMLLike(r io.Reader) (Scenario, error) {
 			currentDevice.Type = strings.TrimSpace(strings.TrimPrefix(line, "type:"))
 		case strings.HasPrefix(line, "topic:") && currentDevice != nil:
 			currentDevice.Topic = strings.TrimSpace(strings.TrimPrefix(line, "topic:"))
+		case strings.HasPrefix(line, "from:") && currentDevice != nil:
+			currentDevice.From = strings.TrimSpace(strings.TrimPrefix(line, "from:"))
 		case strings.HasPrefix(line, "frequency_hz:") && currentDevice != nil:
 			v, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimPrefix(line, "frequency_hz:")), 64)
 			if err != nil {
@@ -193,14 +195,8 @@ func ParseYAMLLike(r io.Reader) (Scenario, error) {
 			currentBridge.IngressTopic = strings.TrimSpace(strings.TrimPrefix(line, "ingress_topic:"))
 		case strings.HasPrefix(line, "egress_topic:") && currentBridge != nil:
 			currentBridge.EgressTopic = strings.TrimSpace(strings.TrimPrefix(line, "egress_topic:"))
-		case strings.HasPrefix(line, "from:") && currentFlow != nil:
-			currentFlow.From = strings.TrimSpace(strings.TrimPrefix(line, "from:"))
-		case strings.HasPrefix(line, "to:") && currentFlow != nil:
-			currentFlow.To = strings.TrimSpace(strings.TrimPrefix(line, "to:"))
-		case strings.HasPrefix(line, "via:") && currentFlow != nil:
-			currentFlow.Via = strings.TrimSpace(strings.TrimPrefix(line, "via:"))
-		case strings.HasPrefix(line, "bridge_ref:") && currentFlow != nil:
-			currentFlow.BridgeRef = strings.TrimSpace(strings.TrimPrefix(line, "bridge_ref:"))
+		case strings.HasPrefix(line, "device:") && currentFlow != nil:
+			currentFlow.Device = strings.TrimSpace(strings.TrimPrefix(line, "device:"))
 		case strings.HasPrefix(line, "- metric:") && currentFlow != nil:
 			flushCondition()
 			currentCondition = &Condition{Metric: strings.TrimSpace(strings.TrimPrefix(line, "- metric:"))}
