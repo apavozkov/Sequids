@@ -18,13 +18,16 @@ services:
 
   telegraf:
     image: telegraf:1.31
-    depends_on: [central, worker, influxdb]
+    depends_on: [central, worker1, worker2, influxdb]
     volumes:
       - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
 
   grafana:
     image: grafana/grafana:11.2.0
     ports: ["3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
     depends_on: [influxdb]
     environment:
       GF_SECURITY_ADMIN_USER: admin
@@ -34,7 +37,7 @@ services:
       - ./grafana/dashboards:/etc/grafana/dashboards
 
   central:
-    image: golang:1.23
+    image: golang:1.25
     working_dir: /app
     volumes: ["../:/app"]
     command:
@@ -51,8 +54,8 @@ services:
     ports: ["8080:8080", "50051:50051"]
     restart: unless-stopped
 
-  worker:
-    image: golang:1.23
+  worker1:
+    image: golang:1.25
     working_dir: /app
     volumes: ["../:/app"]
     command:
@@ -61,6 +64,7 @@ services:
       - |
         apt-get update && apt-get install -y --no-install-recommends mosquitto-clients && \
         /app/bin/worker \
+          -id worker-1
           -grpc-addr :50052 \
           -advertise-addr worker:50052 \
           -metrics-addr :8090 \
@@ -72,4 +76,28 @@ services:
           -influx-bucket metrics
     depends_on: [central, mosquitto, influxdb]
     ports: ["8090:8090", "50052:50052"]
+    restart: unless-stopped
+
+worker2:
+    image: golang:1.25
+    working_dir: /app
+    volumes: ["../:/app"]
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        apt-get update && apt-get install -y --no-install-recommends mosquitto-clients && \
+        /app/bin/worker \
+          -id worker-2
+          -grpc-addr worker:50053 \
+          -advertise-addr worker:50053 \
+          -metrics-addr :8091 \
+          -central-grpc central:50051 \
+          -mqtt-host mosquitto -mqtt-port 1883 \
+          -influx-url http://influxdb:8086 \
+          -influx-token sequids-token \
+          -influx-org sequids \
+          -influx-bucket metrics
+    depends_on: [central, mosquitto, influxdb]
+    ports: ["8091:8091", "50053:50053"]
     restart: unless-stopped
