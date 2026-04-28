@@ -18,13 +18,16 @@ services:
 
   telegraf:
     image: telegraf:1.31
-    depends_on: [central, worker, worker2, influxdb]
+    depends_on: [central, worker1, worker2, influxdb]
     volumes:
       - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
 
   grafana:
     image: grafana/grafana:11.2.0
     ports: ["3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
     depends_on: [influxdb]
     environment:
       GF_SECURITY_ADMIN_USER: admin
@@ -34,7 +37,7 @@ services:
       - ./grafana/dashboards:/etc/grafana/dashboards
 
   central:
-    image: golang:1.23
+    image: golang:1.25
     working_dir: /app
     volumes: ["../:/app"]
     command:
@@ -51,7 +54,7 @@ services:
     ports: ["8080:8080", "50051:50051"]
     restart: unless-stopped
 
-  worker:
+  worker1:
     image: golang:1.25
     working_dir: /app
     volumes: ["../:/app"]
