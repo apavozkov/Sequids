@@ -20,7 +20,7 @@ flows:
     conditions:
       - metric: value
         op: gt
-        threshold: 26
+        threshold: 24.7
     actions:
       - target: air-conditioner-1
         command: power_on
