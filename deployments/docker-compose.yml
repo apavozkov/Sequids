@@ -44,11 +44,11 @@ services:
         apt-get update && apt-get install -y --no-install-recommends libsqlite3-0 && \
         /app/bin/central serve \
           -grpc-addr :50051 \
-          -metrics-addr :8081 \
+          -metrics-addr :8080 \
           -db /app/sequids.db \
           -formulas /app/configs/formulas/formulas.yaml \
           -anomalies /app/configs/anomalies/anomalies.yaml
-    ports: ["8081:8081", "50051:50051"]
+    ports: ["18080:8080", "15051:50051"]
     restart: unless-stopped
 
   worker1:
